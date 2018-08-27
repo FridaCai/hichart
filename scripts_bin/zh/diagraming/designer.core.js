@@ -326,6 +326,8 @@ var Designer = {
                     $("#canvas_container").bind("mouseup.create", function(t) {
                         n = true
                     });
+
+                    //frida
                     $(document).bind("mouseup.create", function() {
                         $(this).unbind("mouseup.create");
                         $("#designer").unbind("mousemove.creating");
