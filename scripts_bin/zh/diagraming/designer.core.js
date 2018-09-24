@@ -2522,86 +2522,93 @@ var Designer = {
                 }
             }
         },
-        shapeLinkable: function(c, a) {
-            var d = $("#designer_canvas");
-            var b = $("#canvas_container");
-            b.unbind("mousedown.link").bind("mousedown.link", function(h) {
-                Designer.op.changeState("linking_from_shape");
-                var f = null;
-                var g = null;
-                var j;
-                if (!c) {
-                    var i = Utils.getRelativePos(h.pageX, h.pageY, d);
-                    j = {
-                        x: i.x.restoreScale(),
-                        y: i.y.restoreScale(),
-                        id: null,
-                        angle: null
-                    }
-                } else {
-                    j = a;
-                    j.id = c.id
-                }
-                Designer.op.initScrollPos();
-                b.bind("mousemove.link", function(l) {
-                    b.css("cursor", "default");
-                    var k = Utils.getRelativePos(l.pageX, l.pageY, d);
-                    if (g == null) {
-                        g = e(j, k);
-                        Designer.events.push("linkerCreating", g)
-                    }
-                    Designer.op.moveLinker(g, "to", k.x, k.y);
-                    $(document).unbind("mouseup.droplinker").bind("mouseup.droplinker", function() {
-                        if (Math.abs(k.x - j.x) > 20 || Math.abs(k.y - j.y) > 20) {
-                            Model.add(g);
-                            Designer.events.push("linkerCreated", g);
-                            if (g.to.id == null && g.from.id != null) {
-                                Designer.op.linkDashboard(g)
-                            }
-                            Utils.showLinkerCursor()
-                        } else {
-                            $("#" + g.id).remove()
-                        }
-                        Designer.op.hideSnapLine();
-                        $(document).unbind("mouseup.droplinker")
-                    });
-                    Designer.op.isScroll(l.pageX, l.pageY)
-                });
-                $(document).bind("mouseup.link", function() {
-                    Designer.op.hideLinkPoint();
-                    Designer.op.resetState();
-                    b.unbind("mousedown.link");
-                    b.unbind("mousemove.link");
-                    $(document).unbind("mouseup.link");
-                    Designer.op.stopScroll()
-                })
-            });
-            function e(j, i) {
-                var g = Utils.newId();
-                var h = Utils.copy(Schema.linkerDefaults);
-                h.from = j;
-                h.to = {
-                    id: null,
-                    x: i.x,
-                    y: i.y,
-                    angle: null
-                };
-                h.props = {
-                    zindex: Model.maxZIndex + 1
-                };
-                delete h.fontStyle;
-                var f = {};
-                if (Designer.defaults.linkerBeginArrowStyle) {
-                    f.beginArrowStyle = Designer.defaults.linkerBeginArrowStyle
-                }
-                if (Designer.defaults.linkerEndArrowStyle) {
-                    f.endArrowStyle = Designer.defaults.linkerEndArrowStyle
-                }
-                h.lineStyle = f;
-                h.id = g;
-                return h
-            }
-        },
+        shapeLinkable: function(shape, linkPoint){
+			var canvas = $("#designer_canvas");
+			var container = $("#canvas_container");
+			container.unbind("mousedown.link").bind("mousedown.link", function(downE){
+				Designer.op.changeState("linking_from_shape");
+				var linkCanvas = null;
+				var createdLinker = null;
+				var from;
+				if(!shape){
+					//当不存在shape的情况，为创建自由连接线
+					var pos = Utils.getRelativePos(downE.pageX, downE.pageY, canvas);
+					from = {
+						x: pos.x.restoreScale(),
+						y: pos.y.restoreScale(),
+						id: null,
+						angle: null
+					};
+				}else{
+					from = linkPoint;
+					from.id = shape.id;
+				}
+				//计算连接点的角度
+				container.bind("mousemove.link", function(moveE){
+                    console.log('Frida Test1');
+
+                    
+					container.css("cursor", "default");
+					var now = Utils.getRelativePos(moveE.pageX, moveE.pageY, canvas);
+					if(createdLinker == null){
+						createdLinker = createLinker(from, now);
+						Designer.events.push("linkerCreating", createdLinker);
+					}
+					Designer.op.moveLinker(createdLinker, "to", now.x, now.y);
+					//在mousemove里绑定一个mouseup，目的是为了当鼠标发生了拖动之后，才认为是进行了拖动事件
+					$(document).unbind("mouseup.droplinker").bind("mouseup.droplinker", function(){
+						//发生了拖动，修改定义
+						if(Math.abs(now.x - from.x) > 20 || Math.abs(now.y - from.y) > 20){
+							Model.add(createdLinker);
+							Designer.events.push("linkerCreated", createdLinker);
+							//连线创建后，是否应该选中
+//							Utils.unselect();
+//							Utils.selectShape(createdLinker.id);
+							if(createdLinker.to.id == null && createdLinker.from.id != null){
+								//如果创建的连接线，终点没有连接形状，则显示出画板
+								Designer.op.linkDashboard(createdLinker);
+							}
+							Utils.showLinkerCursor();
+						}else{
+							//拖动没超过20*20，删除
+							$("#" + createdLinker.id).remove();
+						}
+						$(document).unbind("mouseup.droplinker");
+					});
+				});
+				$(document).bind("mouseup.link", function(){
+					Designer.op.hideLinkPoint();
+					Designer.op.resetState();
+					container.unbind("mousedown.link");
+					container.unbind("mousemove.link");
+					$(document).unbind("mouseup.link");
+				});
+			});
+			
+			/**
+			 * 创建形状
+			 * @param schemaName
+			 * @param centerX
+			 * @param centerY
+			 * @returns
+			 */
+			function createLinker(from, to){
+				var newId = Utils.newId();
+				var linker = Utils.copy(Schema.linkerDefaults);
+				linker.from = from;
+				linker.to = {
+					id: null,
+					x: to.x,
+					y: to.y,
+					angle: null
+				};
+				linker.props = {
+					zindex: Model.maxZIndex + 1
+				};
+				linker.id = newId;
+				return linker;
+			}
+		},
         linkerEditable: function(b) {
             var a = $("#designer_canvas");
             a.unbind("dblclick.edit_linker").bind("dblclick.edit_linker", function() {
@@ -2973,7 +2980,103 @@ var Designer = {
                 })
             }
         },
-        moveLinker: function(i, q, f, e) {
+        /**
+		 * 移动连接线，拖动端点
+		 * @param {} linker
+		 * @param {} point
+		 * @param {} pageX
+		 * @param {} pageY
+		 */
+		moveLinker: function(linker, point, x, y){
+			var newPos = null;
+			var linkedShape = null;
+			var focus = Utils.getShapeByPosition(x, y, true);
+			Designer.op.hideLinkPoint();
+			if(focus != null){
+				var shape = focus.shape;
+				Utils.showAnchors(shape);
+				linkedShape = shape.id;
+				if(focus.type == "bounding"){
+					newPos = focus.linkPoint;
+					Designer.op.showLinkPoint(Utils.toScale(newPos));
+				}else if(focus.type == "shape"){
+					//如果鼠标移动到了某一个图形上
+					var fixedPoint; //固定点，起点or终点
+					var fixedId;
+					if(point == "from"){
+						fixedPoint = {x: linker.to.x, y: linker.to.y};
+						fixedId = linker.to.id;
+					}else{
+						fixedPoint = {x: linker.from.x, y: linker.from.y};
+						fixedId = linker.from.id;
+					}
+					if(shape.id == fixedId){
+						//如果鼠标悬浮的形状为另一端点连接的图形，不自动连接
+						Designer.op.hideLinkPoint();
+						newPos = {x: x.restoreScale(), y: y.restoreScale()};
+						newPos.angle = null;
+						linkedShape = null;
+					}else{
+						var anchors = shape.getAnchors();
+						var minDistance = -1;
+						var nearestAnchor;
+						var shapeCenter = {x: shape.props.x + shape.props.w/2, y: shape.props.y + shape.props.h/2};
+						//循环所有锚点，取距离固定点最近的一点
+						for ( var ai = 0; ai < anchors.length; ai++) {
+							var an = anchors[ai];
+							var anchorPos = Utils.getRotated(shapeCenter, {x: shape.props.x + an.x, y: shape.props.y + an.y}, shape.props.angle);
+							var anchorDistance = Utils.measureDistance(anchorPos, fixedPoint);
+							if(minDistance == -1 || anchorDistance < minDistance){
+								minDistance = anchorDistance;
+								nearestAnchor = anchorPos;
+							}
+						}
+						var anchorAngle = Utils.getPointAngle(shape.id, nearestAnchor.x, nearestAnchor.y, 7);
+						newPos = {
+							x: nearestAnchor.x,
+							y: nearestAnchor.y,
+							angle: anchorAngle
+						};
+						Designer.op.showLinkPoint(Utils.toScale(newPos));
+					}
+				}
+			}else{
+				Designer.op.hideLinkPoint();
+				Utils.hideAnchors();
+				newPos = {x: x.restoreScale(), y: y.restoreScale()};
+				newPos.angle = null;
+				linkedShape = null;
+			}
+			if(point == "from"){
+				linker.from.id = linkedShape;
+				linker.from.x = newPos.x;
+				linker.from.y = newPos.y;
+				linker.from.angle = newPos.angle;
+				if(linkedShape == null){
+					if(newPos.x >= linker.to.x -6 && newPos.x <= linker.to.x + 6){
+						linker.from.x = linker.to.x;
+					}
+					if(newPos.y >= linker.to.y -6 && newPos.y <= linker.to.y + 6){
+						linker.from.y = linker.to.y;
+					}
+				}
+			}else{
+				linker.to.x = newPos.x;
+				linker.to.y = newPos.y;
+				linker.to.id = linkedShape;
+				linker.to.angle = newPos.angle;
+				if(linkedShape == null){
+					if(newPos.x >= linker.from.x -6 && newPos.x <= linker.from.x + 6){
+						linker.to.x = linker.from.x;
+					}
+					if(newPos.y >= linker.from.y -6 && newPos.y <= linker.from.y + 6){
+						linker.to.y = linker.from.y;
+					}
+				}
+			}
+			Designer.painter.renderLinker(linker, true);
+		},
+        moveLinker_deprecated: function(i, q, f, e) {
             var b = null;
             var j = null;
             var m = Utils.getShapeByPosition(f, e, true);
@@ -5195,7 +5298,308 @@ var Designer = {
                 }
             }
         },
-        renderLinker: function(h, k) {
+        /**
+		 * 绘制连接线
+		 * @param {} linker 连接线对象
+		 */
+		renderLinker: function(linker, pointChanged){
+			if(pointChanged){
+				//如果渲染时，连接线的点发成了改变，重新查找
+				linker.points = Utils.getLinkerPoints(linker);
+			}
+			//重新获取一下points，有些错误图形可能没有points
+			if(linker.linkerType == "curve" || linker.linkerType == "broken"){
+				if(!linker.points || linker.points.length == 0){
+					linker.points = Utils.getLinkerPoints(linker);
+				}
+			}
+			//找到连接线上的点
+			var points = linker.points;
+			var from = linker.from;
+			var to = linker.to;
+			//先决定矩形容器的坐标、宽高信息
+			var minX = to.x;
+			var minY = to.y;
+			var maxX = from.x;
+			var maxY = from.y;
+			if(to.x < from.x){
+				minX = to.x;
+				maxX = from.x;
+			}else{
+				minX = from.x;;
+				maxX = to.x;
+			}
+			if(to.y < from.y){
+				minY = to.y;
+				maxY = from.y;
+			}else{
+				minY = from.y;;
+				maxY = to.y;
+			}
+			for(var i = 0; i < points.length; i++){
+				var point = points[i];
+				if(point.x < minX){
+					minX = point.x;
+				}else if(point.x > maxX){
+					maxX = point.x;
+				}
+				if(point.y < minY){
+					minY = point.y;
+				}else if(point.y > maxY){
+					maxY = point.y;
+				}
+			}
+			var box = {
+				x: minX,
+				y: minY,
+				w: maxX - minX,
+				h: maxY - minY
+			}
+			var linkerBox = $("#" + linker.id);
+			if(linkerBox.length == 0){
+				//如果不存在，要执行创建
+				var superCanvas = $("#designer_canvas");
+				linkerBox = $("<div id='"+linker.id+"' class='shape_box linker_box'><canvas class='shape_canvas'></canvas></div>").appendTo(superCanvas);
+			}
+			var linkerCanvas = linkerBox.find(".shape_canvas");
+			linkerCanvas.attr({
+				width: (box.w + 20).toScale(),
+				height: (box.h + 20).toScale()
+			});
+			linkerBox.css({
+				left: (box.x - 10).toScale(),
+				top: (box.y - 10).toScale(),
+				width: (box.w + 20).toScale(),
+				height: (box.h + 20).toScale()
+			});
+			//执行绘制连线
+			var ctx = linkerCanvas[0].getContext("2d");
+			ctx.scale(Designer.config.scale, Designer.config.scale);
+			ctx.translate(10, 10);
+			//定义绘制样式
+			var style = linker.lineStyle;
+			ctx.lineWidth = style.lineWidth;
+			ctx.strokeStyle = "rgb("+style.lineColor+")";
+			ctx.fillStyle = "rgb("+style.lineColor+")";
+			ctx.save();
+			var begin = {x: from.x - box.x, y: from.y - box.y};
+			var end = {x: to.x - box.x, y: to.y - box.y};
+			ctx.save();
+			//开始绘制连线
+			if(style.lineStyle == "dashed"){
+				//虚线
+				this.setLineDash(ctx, [style.lineWidth * 8, style.lineWidth * 4]);
+			}else if(style.lineStyle == "dot"){
+				//点线
+				this.setLineDash(ctx, [style.lineWidth, style.lineWidth * 2]);
+			}else if(style.lineStyle == "dashdot"){
+				//点线
+				this.setLineDash(ctx, [style.lineWidth * 8, style.lineWidth * 3, style.lineWidth, style.lineWidth * 3]);
+			}
+			ctx.beginPath();
+			ctx.moveTo(begin.x, begin.y);
+			if(linker.linkerType == "curve"){
+				var cp1 = points[0];
+				var cp2 = points[1];
+				ctx.bezierCurveTo(cp1.x - box.x, cp1.y - box.y, cp2.x - box.x, cp2.y - box.y, end.x, end.y);
+			}else{
+				for(var i = 0; i < points.length; i++){
+					//如果是折线，会有折点
+					var linkerPoint = points[i];
+					ctx.lineTo(linkerPoint.x - box.x, linkerPoint.y - box.y);
+				}
+				ctx.lineTo(end.x, end.y);
+			}
+			var selected = Utils.isSelected(linker.id);
+			if(selected){
+				//如果是选中了，绘制阴影
+				ctx.shadowBlur = 4;
+				ctx.shadowColor = "#833";
+				if(linker.linkerType == "curve" && Utils.getSelectedIds().length == 1){
+					//连接线为曲线，并且只选中了一条
+				}
+			}
+			ctx.stroke();
+			ctx.restore(); //还原虚线样式和阴影
+			//开始绘制箭头
+			var fromAngle = Utils.getEndpointAngle(linker, "from");
+			drawArrow(begin, fromAngle, from.id, style.beginArrowStyle, linker, from.angle);
+			var toAngle = Utils.getEndpointAngle(linker, "end");
+			drawArrow(end, toAngle, to.id, style.endArrowStyle, linker, to.angle);
+			ctx.restore();
+			//绘制文字
+			this.renderLinkerText(linker);
+			/**
+			 * 绘制箭头
+			 */
+			function drawArrow(point, pointAngle, linkShapeId, style, linker, linkerAngle){
+				if(style == "normal"){
+					//箭头
+					var arrowLength = 12; //箭头长度
+					var arrowAngle = Math.PI / 5;  //箭头角度
+					var hypotenuse = arrowLength / Math.cos(arrowAngle); //箭头斜边长度
+					var leftArrowX = point.x - hypotenuse * Math.cos(pointAngle - arrowAngle);
+					var leftArrowY = point.y - hypotenuse * Math.sin(pointAngle - arrowAngle);
+					var rightArrowX = point.x - hypotenuse * Math.sin(Math.PI / 2 - pointAngle - arrowAngle);
+					var rightArrowY = point.y - hypotenuse * Math.cos(Math.PI / 2 - pointAngle - arrowAngle);
+					ctx.beginPath();
+					ctx.moveTo(leftArrowX, leftArrowY);
+					ctx.lineTo(point.x, point.y);
+					ctx.lineTo(rightArrowX, rightArrowY);
+					ctx.stroke();
+				}else if(style == "solidArrow"){
+					//实心箭头
+					var arrowLength = 12; //箭头长度
+					var arrowAngle = Math.PI / 10;  //箭头角度
+					var hypotenuse = arrowLength / Math.cos(arrowAngle); //箭头斜边长度
+					var leftArrowX = point.x - hypotenuse * Math.cos(pointAngle - arrowAngle);
+					var leftArrowY = point.y - hypotenuse * Math.sin(pointAngle - arrowAngle);
+					var rightArrowX = point.x - hypotenuse * Math.sin(Math.PI / 2 - pointAngle - arrowAngle);
+					var rightArrowY = point.y - hypotenuse * Math.cos(Math.PI / 2 - pointAngle - arrowAngle);
+					ctx.beginPath();
+					ctx.moveTo(point.x, point.y);
+					ctx.lineTo(leftArrowX, leftArrowY);
+					ctx.lineTo(rightArrowX, rightArrowY);
+					ctx.lineTo(point.x, point.y);
+					ctx.closePath();
+					ctx.fill();
+					ctx.stroke();
+				}else if(style == "dashedArrow"){
+					//空心箭头
+					ctx.save();
+					var arrowLength = 12; //箭头长度
+					var arrowAngle = Math.PI / 10;  //箭头角度
+					var hypotenuse = arrowLength / Math.cos(arrowAngle); //箭头斜边长度
+					var leftArrowX = point.x - hypotenuse * Math.cos(pointAngle - arrowAngle);
+					var leftArrowY = point.y - hypotenuse * Math.sin(pointAngle - arrowAngle);
+					var rightArrowX = point.x - hypotenuse * Math.sin(Math.PI / 2 - pointAngle - arrowAngle);
+					var rightArrowY = point.y - hypotenuse * Math.cos(Math.PI / 2 - pointAngle - arrowAngle);
+					ctx.beginPath();
+					ctx.moveTo(point.x, point.y);
+					ctx.lineTo(leftArrowX, leftArrowY);
+					ctx.lineTo(rightArrowX, rightArrowY);
+					ctx.lineTo(point.x, point.y);
+					ctx.closePath();
+					ctx.fillStyle = "white";
+					ctx.fill();
+					ctx.stroke();
+					ctx.restore();
+				}else if(style == "solidCircle"){
+					//实心圆
+					ctx.save();
+					var circleRadius = 4;
+					var circleX = point.x - circleRadius * Math.cos(pointAngle);
+					var circleY = point.y - circleRadius * Math.sin(pointAngle);
+					ctx.beginPath();
+					ctx.arc(circleX, circleY, circleRadius, 0, Math.PI * 2, false);
+					ctx.closePath();
+					ctx.fill();
+					ctx.stroke();
+					ctx.restore();
+				}else if(style == "dashedCircle"){
+					//空心圆
+					ctx.save();
+					var circleRadius = 4;
+					var circleX = point.x - circleRadius * Math.cos(pointAngle);
+					var circleY = point.y - circleRadius * Math.sin(pointAngle);
+					ctx.beginPath();
+					ctx.arc(circleX, circleY, circleRadius, 0, Math.PI * 2, false);
+					ctx.closePath();
+					ctx.fillStyle = "white";
+					ctx.fill();
+					ctx.stroke();
+					ctx.restore();
+				}else if(style == "solidDiamond"){
+					//实心菱形
+					ctx.save();
+					var arrowLength = 8; //箭头长度
+					var arrowAngle = Math.PI / 7;  //箭头角度
+					var hypotenuse = arrowLength / Math.cos(arrowAngle); //箭头斜边长度
+					var leftArrowX = point.x - hypotenuse * Math.cos(pointAngle - arrowAngle);
+					var leftArrowY = point.y - hypotenuse * Math.sin(pointAngle - arrowAngle);
+					var rightArrowX = point.x - hypotenuse * Math.sin(Math.PI / 2 - pointAngle - arrowAngle);
+					var rightArrowY = point.y - hypotenuse * Math.cos(Math.PI / 2 - pointAngle - arrowAngle);
+					//菱形在线上的一点的坐标
+					var lineX = point.x - arrowLength * 2 * Math.cos(pointAngle);
+					var lineY = point.y - arrowLength * 2 * Math.sin(pointAngle);
+					ctx.beginPath();
+					ctx.moveTo(point.x, point.y);
+					ctx.lineTo(leftArrowX, leftArrowY);
+					ctx.lineTo(lineX, lineY);
+					ctx.lineTo(rightArrowX, rightArrowY);
+					ctx.lineTo(point.x, point.y);
+					ctx.closePath();
+					ctx.fill();
+					ctx.stroke();
+					ctx.restore();
+				}else if(style == "dashedDiamond"){
+					//空心菱形
+					ctx.save();
+					var arrowLength = 8; //箭头长度
+					var arrowAngle = Math.PI / 7;  //箭头角度
+					var hypotenuse = arrowLength / Math.cos(arrowAngle); //箭头斜边长度
+					var leftArrowX = point.x - hypotenuse * Math.cos(pointAngle - arrowAngle);
+					var leftArrowY = point.y - hypotenuse * Math.sin(pointAngle - arrowAngle);
+					var rightArrowX = point.x - hypotenuse * Math.sin(Math.PI / 2 - pointAngle - arrowAngle);
+					var rightArrowY = point.y - hypotenuse * Math.cos(Math.PI / 2 - pointAngle - arrowAngle);
+					//菱形在线上的一点的坐标
+					var lineX = point.x - arrowLength * 2 * Math.cos(pointAngle);
+					var lineY = point.y - arrowLength * 2 * Math.sin(pointAngle);
+					ctx.beginPath();
+					ctx.moveTo(point.x, point.y);
+					ctx.lineTo(leftArrowX, leftArrowY);
+					ctx.lineTo(lineX, lineY);
+					ctx.lineTo(rightArrowX, rightArrowY);
+					ctx.lineTo(point.x, point.y);
+					ctx.closePath();
+					ctx.fillStyle = "white";
+					ctx.fill();
+					ctx.stroke();
+					ctx.restore();
+				}else if(style == "cross"){
+					//交叉
+					var arrowW = 6; //交叉线的宽度
+					var arrowL = 14;
+					var offsetX = arrowW * Math.cos(Math.PI / 2 - pointAngle);
+					var offsetY = arrowW * Math.sin(Math.PI / 2 - pointAngle);
+					var x1 = point.x + offsetX;
+					var y1 = point.y - offsetY;
+					var lineX = point.x - arrowL * Math.cos(pointAngle);
+					var lineY = point.y - arrowL * Math.sin(pointAngle);
+					var x2 = lineX - offsetX;
+					var y2 = lineY + offsetY;
+					ctx.beginPath();
+					ctx.moveTo(x1, y1);
+					ctx.lineTo(x2, y2);
+					ctx.stroke();
+				}
+				if(linkShapeId && style != "solidCircle" && style != "dashedCircle"){
+					var linkShape = Model.getShapeById(linkShapeId);
+					if(linkShape){
+						ctx.save();
+						ctx.translate(point.x, point.y);
+						ctx.rotate(linkerAngle);
+						ctx.translate(-point.x, -point.y);
+						var clearX = point.x - linkShape.lineStyle.lineWidth/2;
+						var clearY = point.y - linker.lineStyle.lineWidth*1.2;
+						var clearW = linker.lineStyle.lineWidth * 2;
+						var clearH = linker.lineStyle.lineWidth * 1.8;
+						var clearSize = 1;
+						var clearingX = clearX;
+						while(clearingX <= clearX + clearW){
+							var clearingY = clearY;
+							while(clearingY <= clearY + clearH){
+								ctx.clearRect(clearingX, clearingY, 1.5, 1.5);
+								clearingY += clearSize;
+							}
+							clearingX += clearSize;
+						}
+						ctx.restore();
+					}
+				}
+			}
+		},
+        renderLinker_deprecated: function(h, k) {
             if (k) {
                 h.points = Utils.getLinkerPoints(h)
             }
@@ -7398,7 +7802,753 @@ var Utils = {
             }
         }
     },
-    getLinkerPoints: function(t) {
+    getLinkerPoints: function(linker){
+		var points = [];
+		if(linker.linkerType == "broken"){
+			var pi = Math.PI;
+			var from = linker.from;
+			var to = linker.to;
+			var xDistance = Math.abs(to.x - from.x);
+			var yDistance = Math.abs(to.y - from.y);
+			var minDistance = 30; //最小距离，比如起点向上，终点在下方，则先要往上画minDistance的距离
+			//折线，取折点
+			if(from.id != null && to.id != null){
+				//起点和终点都连接了形状
+				var fromDir = this.getAngleDir(from.angle); //起点方向
+				var toDir = this.getAngleDir(to.angle); //终点方向
+				var fixed, active, reverse; //固定点、移动点、是否需要逆序
+				//以起点为判断依据，可以涵盖所有情况
+				if(fromDir == 1 && toDir == 1){
+					//情况1：两个点都向上
+					if(from.y < to.y){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					if(active.x >= fixedProps.x - minDistance && active.x <= fixedProps.x + fixedProps.w + minDistance){
+						var x;
+						if(active.x < fixedProps.x + fixedProps.w / 2){
+							x = fixedProps.x - minDistance;
+						}else{
+							x = fixedProps.x + fixedProps.w + minDistance;
+						}
+						var y = fixed.y - minDistance;
+						points.push({x: fixed.x, y: y});
+						points.push({x: x, y: y});
+						y = active.y - minDistance;
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else{
+						var y = fixed.y - minDistance;
+						points.push({x: fixed.x, y: y});
+						points.push({x: active.x, y: y});
+					}
+				}else if(fromDir == 3 && toDir == 3){
+					//情况2：两个点都向下
+					if(from.y > to.y){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					if(active.x >= fixedProps.x - minDistance && active.x <= fixedProps.x + fixedProps.w + minDistance){
+						var y = fixed.y + minDistance;
+						var x;
+						if(active.x < fixedProps.x + fixedProps.w / 2){
+							x = fixedProps.x - minDistance;
+						}else{
+							x = fixedProps.x + fixedProps.w + minDistance;
+						}
+						points.push({x: fixed.x, y: y});
+						points.push({x: x, y: y});
+						y = active.y + minDistance;
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else{
+						var y = fixed.y + minDistance;
+						points.push({x: fixed.x, y: y});
+						points.push({x: active.x, y: y});
+					}
+				}else if(fromDir == 2 && toDir == 2){
+					//情况3：两点都向右
+					if(from.x > to.x){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					if(active.y >= fixedProps.y - minDistance && active.y <= fixedProps.y + fixedProps.h + minDistance){
+						var x = fixed.x + minDistance;
+						var y;
+						if(active.y < fixedProps.y + fixedProps.h / 2){
+							y = fixedProps.y - minDistance;
+						}else{
+							y = fixedProps.y + fixedProps.h + minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						x = active.x + minDistance;
+						points.push({x: x, y: y});
+						points.push({x: x, y: active.y});
+					}else{
+						var x = fixed.x + minDistance;
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: active.y});
+					}
+				}else if(fromDir == 4 && toDir == 4){
+					//情况4：两点都向左
+					if(from.x < to.x){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					if(active.y >= fixedProps.y - minDistance && active.y <= fixedProps.y + fixedProps.h + minDistance){
+						var x = fixed.x - minDistance;
+						var y;
+						if(active.y < fixedProps.y + fixedProps.h / 2){
+							y = fixedProps.y - minDistance;
+						}else{
+							y = fixedProps.y + fixedProps.h + minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						x = active.x - minDistance;
+						points.push({x: x, y: y});
+						points.push({x: x, y: active.y});
+					}else{
+						var x = fixed.x - minDistance;
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: active.y});
+					}
+				}else if((fromDir == 1 && toDir == 3) || (fromDir == 3 && toDir == 1)){
+					//情况5：一个点向上，一个点向下
+					if(fromDir == 1){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					if(active.y <= fixed.y){
+						var y = fixed.y - yDistance / 2;
+						points.push({x: fixed.x, y: y});
+						points.push({x: active.x, y: y});
+					}else{
+						var fixedRight = fixedProps.x + fixedProps.w;
+						var activeRight = activeProps.x + activeProps.w;
+						var y = fixed.y - minDistance;
+						var x;
+						if(activeRight >= fixedProps.x && activeProps.x <= fixedRight){
+							//x轴重叠的情况
+							var half = fixedProps.x + fixedProps.w / 2;
+							if(active.x < half){
+								//从左边绕
+								x = fixedProps.x < activeProps.x ? fixedProps.x - minDistance : activeProps.x - minDistance;
+							}else{
+								//从右边绕
+								x = fixedRight > activeRight ? fixedRight + minDistance : activeRight + minDistance;
+							}
+							if(activeProps.y < fixed.y){
+								y = activeProps.y - minDistance;
+							}
+						}else{
+							if(active.x < fixed.x){
+								x = activeRight + (fixedProps.x - activeRight) / 2;
+							}else{
+								x = fixedRight + (activeProps.x - fixedRight) / 2;
+							}
+						}
+						points.push({x: fixed.x, y: y});
+						points.push({x: x, y: y});
+						y = active.y + minDistance;
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}
+				}else if((fromDir == 2 && toDir == 4) || (fromDir == 4 && toDir == 2)){
+					//情况6：一个点向右，一个点向左
+					if(fromDir == 2){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					if(active.x > fixed.x){
+						var x = fixed.x + xDistance / 2;
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: active.y});
+					}else{
+						var fixedBottom = fixedProps.y + fixedProps.h;
+						var activeBottom = activeProps.y + activeProps.h;
+						var x = fixed.x + minDistance;
+						var y;
+						if(activeBottom >= fixedProps.y && activeProps.y <= fixedBottom){
+							//y轴重叠的情况
+							var half = fixedProps.y + fixedProps.h / 2;
+							if(active.y < half){
+								//从上边绕
+								y = fixedProps.y < activeProps.y ? fixedProps.y - minDistance : activeProps.y - minDistance;
+							}else{
+								//从下边绕
+								y = fixedBottom > activeBottom ? fixedBottom + minDistance : activeBottom + minDistance;
+							}
+							if(activeProps.x + activeProps.w > fixed.x){
+								x = activeProps.x + activeProps.w + minDistance;
+							}
+						}else{
+							if(active.y < fixed.y){
+								y = activeBottom + (fixedProps.y - activeBottom) / 2;
+							}else{
+								y = fixedBottom + (activeProps.y - fixedBottom) / 2;
+							}
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						x = active.x - minDistance;
+						points.push({x: x, y: y});
+						points.push({x: x, y: active.y});
+					}
+				}else if((fromDir == 1 && toDir == 2) || (fromDir == 2 && toDir == 1)){
+					//情况7：一个点向上，一个点向右
+					if(fromDir == 2){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					if(active.x > fixed.x && active.y > fixed.y){
+						points.push({x: active.x, y: fixed.y});
+					}else if(active.x > fixed.x && activeProps.x > fixed.x){
+						var x;
+						if(activeProps.x - fixed.x < minDistance * 2){
+							x = fixed.x + (activeProps.x - fixed.x) / 2;
+						}else{
+							x = fixed.x + minDistance;
+						}
+						var y = active.y - minDistance;
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else if(active.x <= fixed.x && active.y > fixedProps.y + fixedProps.h){
+						var fixedBottom = fixedProps.y + fixedProps.h;
+						var x = fixed.x + minDistance;
+						var y
+						if(active.y - fixedBottom < minDistance * 2){
+							y = fixedBottom + (active.y - fixedBottom) / 2;
+						}else{
+							y = active.y - minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else{
+						var x;
+						var activeRight = activeProps.x + activeProps.w;
+						if(activeRight > fixed.x){
+							x = activeRight + minDistance;
+						}else{
+							x = fixed.x + minDistance;
+						}
+						var y;
+						if(active.y < fixedProps.y){
+							y = active.y - minDistance;
+						}else{
+							y = fixedProps.y - minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}
+				}else if((fromDir == 1 && toDir == 4) || (fromDir == 4 && toDir == 1)){
+					//情况8：一个点向上，一个点向左
+					if(fromDir == 4){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					var activeRight = activeProps.x + activeProps.w;
+					if(active.x < fixed.x && active.y > fixed.y){
+						points.push({x: active.x, y: fixed.y});
+					}else if(active.x < fixed.x && activeRight < fixed.x){
+						var x;
+						if(fixed.x - activeRight < minDistance * 2){
+							x = activeRight + (fixed.x - activeRight) / 2;
+						}else{
+							x = fixed.x - minDistance;
+						}
+						var y = active.y - minDistance;
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else if(active.x >= fixed.x && active.y > fixedProps.y + fixedProps.h){
+						var fixedBottom = fixedProps.y + fixedProps.h;
+						var x = fixed.x - minDistance;
+						var y
+						if(active.y - fixedBottom < minDistance * 2){
+							y = fixedBottom + (active.y - fixedBottom) / 2;
+						}else{
+							y = active.y - minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else{
+						var x;
+						if(activeProps.x < fixed.x){
+							x = activeProps.x - minDistance;
+						}else{
+							x = fixed.x - minDistance;
+						}
+						var y;
+						if(active.y < fixedProps.y){
+							y = active.y - minDistance;
+						}else{
+							y = fixedProps.y - minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}
+				}else if((fromDir == 2 && toDir == 3) || (fromDir == 3 && toDir == 2)){
+					//情况9：一个点向右，一个点向下
+					if(fromDir == 2){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					if(active.x > fixed.x && active.y < fixed.y){
+						points.push({x: active.x, y: fixed.y});
+					}else if(active.x > fixed.x && activeProps.x > fixed.x){
+						var x;
+						if(activeProps.x - fixed.x < minDistance * 2){
+							x = fixed.x + (activeProps.x - fixed.x) / 2;
+						}else{
+							x = fixed.x + minDistance;
+						}
+						var y = active.y + minDistance;
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else if(active.x <= fixed.x && active.y < fixedProps.y){
+						var x = fixed.x + minDistance;
+						var y
+						if(fixedProps.y - active.y < minDistance * 2){
+							y = active.y + (fixedProps.y - active.y) / 2;
+						}else{
+							y = active.y + minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else{
+						var x;
+						var activeRight = activeProps.x + activeProps.w;
+						if(activeRight > fixed.x){
+							x = activeRight + minDistance;
+						}else{
+							x = fixed.x + minDistance;
+						}
+						var y;
+						if(active.y > fixedProps.y + fixedProps.h){
+							y = active.y + minDistance;
+						}else{
+							y = fixedProps.y + fixedProps.h + minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}
+				}else if((fromDir == 3 && toDir == 4) || (fromDir == 4 && toDir == 3)){
+					//情况10：一个点向下，一个点向左
+					if(fromDir == 4){
+						fixed = from;
+						active = to;
+						reverse = false;
+					}else{
+						fixed = to;
+						active = from;
+						reverse = true;
+					}
+					var fixedProps = Model.getShapeById(fixed.id).props;
+					var activeProps = Model.getShapeById(active.id).props;
+					var activeRight = activeProps.x + activeProps.w;
+					if(active.x < fixed.x && active.y < fixed.y){
+						points.push({x: active.x, y: fixed.y});
+					}else if(active.x < fixed.x && activeRight < fixed.x){
+						var x;
+						if(fixed.x - activeRight < minDistance * 2){
+							x = activeRight + (fixed.x - activeRight) / 2;
+						}else{
+							x = fixed.x - minDistance;
+						}
+						var y = active.y + minDistance;
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else if(active.x >= fixed.x && active.y < fixedProps.y){
+						var x = fixed.x - minDistance;
+						var y
+						if(fixedProps.y - active.y < minDistance * 2){
+							y = active.y + (fixedProps.y - active.y) / 2;
+						}else{
+							y = active.y + minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}else{
+						var x;
+						if(activeProps.x < fixed.x){
+							x = activeProps.x - minDistance;
+						}else{
+							x = fixed.x - minDistance;
+						}
+						var y;
+						if(active.y > fixedProps.y + fixedProps.h){
+							y = active.y + minDistance;
+						}else{
+							y = fixedProps.y + fixedProps.h + minDistance;
+						}
+						points.push({x: x, y: fixed.y});
+						points.push({x: x, y: y});
+						points.push({x: active.x, y: y});
+					}
+				}
+				if(reverse){
+					points.reverse();
+				}
+			}else if(from.id != null || to.id != null){
+				//只有起点或终点连接了形状
+				//连接了形状的端点被认为是固定点，另一点被认为是活动的点
+				var fixed, active, reverse, angle;
+				if(from.id != null){
+					fixed = from;
+					active = to;
+					reverse = false;
+					angle = from.angle
+				}else{
+					fixed = to;
+					active = from;
+					reverse = true; //如果固定点是终点，需要把得到的点逆序，因为绘制时是从起点开始的，而此处计算获得的点将是从终点开始
+					angle = to.angle
+				}
+				var props = Model.getShapeById(fixed.id).props;
+				if(angle >= pi / 4 && angle < pi / 4 * 3){
+					//起点角度为向上
+					if(active.y < fixed.y){
+						//终点在起点图形上方
+						if(xDistance >= yDistance){
+							//如果终点离起点的水平距离较远，最终方向为水平，此情况下只有一个折点
+							points.push({x: fixed.x, y: active.y});
+						}else{
+							//如果终点离起点的垂直距离较远，最终方向为向上，此情况下有两个折点
+							var half = yDistance / 2;
+							points.push({x: fixed.x, y: fixed.y - half});
+							points.push({x: active.x, y: fixed.y - half});
+						}
+					}else{
+						//终点在起点水平平行或下方的位置
+						points.push({x: fixed.x, y: fixed.y - minDistance}); //先向上画一笔
+						if(xDistance >= yDistance){
+							//如果终点离起点的水平距离较远，最终方向为水平
+							if(active.x >= props.x - minDistance && active.x <= props.x + props.w + minDistance){
+								//如果终点在x轴上的坐标，在图形范围内，在判断终点与形状是偏左还是偏右
+								var shapeHalf = props.x + props.w / 2;
+								if(active.x < shapeHalf){
+									//偏左，第二点在形状左上角
+									points.push({x: props.x - minDistance, y: fixed.y - minDistance});
+									points.push({x: props.x - minDistance, y: active.y});
+								}else{
+									points.push({x: props.x + props.w + minDistance, y: fixed.y - minDistance});
+									points.push({x: props.x + props.w + minDistance, y: active.y});
+								}
+							}else{
+								//如果终点在x轴上的坐标，在图形范围外，此时有三个点
+								if(active.x < props.x){
+									points.push({x: active.x + minDistance, y: fixed.y - minDistance});
+									points.push({x: active.x + minDistance, y: active.y});
+								}else{
+									points.push({x: active.x - minDistance, y: fixed.y - minDistance});
+									points.push({x: active.x - minDistance, y: active.y});
+								}
+							}
+						}else{
+							//如果终点离起点的垂直距离较远，最终方向为向下
+							if(active.x >= props.x - minDistance && active.x <= props.x + props.w + minDistance){
+								//如果终点在x轴上的坐标，在图形范围内，此时有四个点
+								//在判断终点与形状是偏左还是偏右
+								var shapeHalf = props.x + props.w / 2;
+								if(active.x < shapeHalf){
+									//偏左，第二点在形状左上角
+									points.push({x: props.x - minDistance, y: fixed.y - minDistance});
+									points.push({x: props.x - minDistance, y: active.y - minDistance});
+									points.push({x: active.x, y: active.y - minDistance});
+								}else{
+									points.push({x: props.x + props.w + minDistance, y: fixed.y - minDistance});
+									points.push({x: props.x + props.w + minDistance, y: active.y - minDistance});
+									points.push({x: active.x, y: active.y - minDistance});
+								}
+							}else{
+								//如果终点在x轴上的坐标，在图形范围外，此时有两个点
+								points.push({x: active.x, y: fixed.y - minDistance});
+							}
+						}
+					}
+				}else if(angle >= pi / 4 * 3 && angle < pi / 4 * 5){
+					//起点角度为向右
+					if(active.x > fixed.x){
+						//终点在起点图形右方
+						if(xDistance >= yDistance){
+							//如果终点离起点的水平距离较远，最终方向为水平，此情况下有两个折点
+							var half = xDistance / 2;
+							points.push({x: fixed.x + half, y: fixed.y});
+							points.push({x: fixed.x + half, y: active.y});
+						}else{
+							//如果终点离起点的垂直距离较远，最终方向为垂直，此情况下只有一个折点
+							points.push({x: active.x, y: fixed.y});
+						}
+					}else{
+						points.push({x: fixed.x + minDistance, y: fixed.y});
+						if(xDistance >= yDistance){
+							//如果终点离起点的水平距离较远，最终方向为水平
+							if(active.y >= props.y - minDistance && active.y <= props.y + props.h + minDistance){
+								//如果终点在y轴上的坐标，在图形范围内，在判断终点与形状是偏上还是偏下
+								var shapeHalf = props.y + props.h / 2;
+								if(active.y < shapeHalf){
+									//偏上，第二点在形状右上角
+									points.push({x: fixed.x + minDistance, y: props.y - minDistance});
+									points.push({x: active.x + minDistance, y: props.y - minDistance});
+									points.push({x: active.x + minDistance, y: active.y});
+								}else{
+									points.push({x: fixed.x + minDistance, y: props.y + props.h + minDistance});
+									points.push({x: active.x + minDistance, y: props.y + props.h + minDistance});
+									points.push({x: active.x + minDistance, y: active.y});
+								}
+							}else{
+								points.push({x: fixed.x + minDistance, y: active.y});
+							}
+						}else{
+							//如果终点离起点的垂直距离较远，最终方向为向下
+							if(active.y >= props.y - minDistance && active.y <= props.y + props.h + minDistance){
+								var shapeHalf = props.y + props.h / 2;
+								if(active.y < shapeHalf){
+									points.push({x: fixed.x + minDistance, y: props.y - minDistance});
+									points.push({x: active.x, y: props.y - minDistance});
+								}else{
+									points.push({x: fixed.x + minDistance, y: props.y + props.h + minDistance});
+									points.push({x: active.x, y: props.y + props.h + minDistance});
+								}
+							}else{
+								if(active.y < fixed.y){
+									points.push({x: fixed.x + minDistance, y: active.y + minDistance});
+									points.push({x: active.x, y: active.y + minDistance});
+								}else{
+									points.push({x: fixed.x + minDistance, y: active.y - minDistance});
+									points.push({x: active.x, y: active.y - minDistance});
+								}
+							}
+						}
+					}
+				}else if(angle >= pi / 4 * 5 && angle < pi / 4 * 7){
+					//起点角度为向下
+					if(active.y > fixed.y){
+						if(xDistance >= yDistance){
+							points.push({x: fixed.x, y: active.y});
+						}else{
+							var half = yDistance / 2;
+							points.push({x: fixed.x, y: fixed.y + half});
+							points.push({x: active.x, y: fixed.y + half});
+						}
+					}else{
+						points.push({x: fixed.x, y: fixed.y + minDistance}); 
+						if(xDistance >= yDistance){
+							if(active.x >= props.x - minDistance && active.x <= props.x + props.w + minDistance){
+								var shapeHalf = props.x + props.w / 2;
+								if(active.x < shapeHalf){
+									points.push({x: props.x - minDistance, y: fixed.y + minDistance});
+									points.push({x: props.x - minDistance, y: active.y});
+								}else{
+									points.push({x: props.x + props.w + minDistance, y: fixed.y + minDistance});
+									points.push({x: props.x + props.w + minDistance, y: active.y});
+								}
+							}else{
+								if(active.x < props.x){
+									points.push({x: active.x + minDistance, y: fixed.y + minDistance});
+									points.push({x: active.x + minDistance, y: active.y});
+								}else{
+									points.push({x: active.x - minDistance, y: fixed.y + minDistance});
+									points.push({x: active.x - minDistance, y: active.y});
+								}
+							}
+						}else{
+							if(active.x >= props.x - minDistance && active.x <= props.x + props.w + minDistance){
+								var shapeHalf = props.x + props.w / 2;
+								if(active.x < shapeHalf){
+									points.push({x: props.x - minDistance, y: fixed.y + minDistance});
+									points.push({x: props.x - minDistance, y: active.y + minDistance});
+									points.push({x: active.x, y: active.y + minDistance});
+								}else{
+									points.push({x: props.x + props.w + minDistance, y: fixed.y + minDistance});
+									points.push({x: props.x + props.w + minDistance, y: active.y + minDistance});
+									points.push({x: active.x, y: active.y + minDistance});
+								}
+							}else{
+								points.push({x: active.x, y: fixed.y + minDistance});
+							}
+						}
+					}
+				}else{
+					//起点角度为向左
+					if(active.x < fixed.x){
+						if(xDistance >= yDistance){
+							var half = xDistance / 2;
+							points.push({x: fixed.x - half, y: fixed.y});
+							points.push({x: fixed.x - half, y: active.y});
+						}else{
+							points.push({x: active.x, y: fixed.y});
+						}
+					}else{
+						points.push({x: fixed.x - minDistance, y: fixed.y});
+						if(xDistance >= yDistance){
+							if(active.y >= props.y - minDistance && active.y <= props.y + props.h + minDistance){
+								var shapeHalf = props.y + props.h / 2;
+								if(active.y < shapeHalf){
+									points.push({x: fixed.x - minDistance, y: props.y - minDistance});
+									points.push({x: active.x - minDistance, y: props.y - minDistance});
+									points.push({x: active.x - minDistance, y: active.y});
+								}else{
+									points.push({x: fixed.x - minDistance, y: props.y + props.h + minDistance});
+									points.push({x: active.x - minDistance, y: props.y + props.h + minDistance});
+									points.push({x: active.x - minDistance, y: active.y});
+								}
+							}else{
+								points.push({x: fixed.x - minDistance, y: active.y});
+							}
+						}else{
+							//如果终点离起点的垂直距离较远，最终方向为向下
+							if(active.y >= props.y - minDistance && active.y <= props.y + props.h + minDistance){
+								var shapeHalf = props.y + props.h / 2;
+								if(active.y < shapeHalf){
+									points.push({x: fixed.x - minDistance, y: props.y - minDistance});
+									points.push({x: active.x, y: props.y - minDistance});
+								}else{
+									points.push({x: fixed.x - minDistance, y: props.y + props.h + minDistance});
+									points.push({x: active.x, y: props.y + props.h + minDistance});
+								}
+							}else{
+								if(active.y < fixed.y){
+									points.push({x: fixed.x - minDistance, y: active.y + minDistance});
+									points.push({x: active.x, y: active.y + minDistance});
+								}else{
+									points.push({x: fixed.x - minDistance, y: active.y - minDistance});
+									points.push({x: active.x, y: active.y - minDistance});
+								}
+							}
+						}
+					}
+				}
+				if(reverse){
+					points.reverse();
+				}
+			}else{
+				//折线的起点和终点都没有角度(没有连接形状)
+				if(xDistance >= yDistance){
+					//如果宽大于高，连接线整体方向为水平
+					var half = (to.x - from.x) / 2;
+					points.push({x: from.x + half, y: from.y});
+					points.push({x: from.x + half, y: to.y});
+				}else{
+					//否则为垂直
+					var half = (to.y - from.y) / 2;
+					points.push({x: from.x, y: from.y + half});
+					points.push({x: to.x, y: from.y + half});
+				}
+			}
+		}else if(linker.linkerType == "curve"){
+			var from = linker.from;
+			var to = linker.to;
+			var distance = this.measureDistance(from, to);
+			var cDistance = distance * 0.4; //控制点的距离，等于起始点距离的1/5
+			/**
+			 * 获取控制点坐标
+			 */
+			function getControlPoint(point, another){
+				if(point.id != null){
+					return {
+						x: point.x - cDistance * Math.cos(point.angle),
+						y: point.y - cDistance * Math.sin(point.angle)
+					};
+				}else{
+					var yDistance = Math.abs(point.y - another.y);
+					var xDiatance = Math.abs(point.x - another.x);
+					var curveAngle = Math.atan(yDistance / xDiatance);
+					var result = {};
+					if(point.x <= another.x){
+						result.x = point.x + cDistance * Math.cos(curveAngle);
+					}else{
+						result.x = point.x - cDistance * Math.cos(curveAngle);
+					}
+					if(point.y <= another.y){
+						result.y = point.y + cDistance * Math.sin(curveAngle);
+					}else{
+						result.y = point.y - cDistance * Math.sin(curveAngle);
+					}
+					return result;
+				}
+			}
+			points.push(getControlPoint(from, to));
+			points.push(getControlPoint(to, from));
+		}
+		return points;
+	},
+    getLinkerPoints_deprecated: function(t) {
         var A = [];
         if (t.linkerType == "broken") {
             var C = Math.PI;

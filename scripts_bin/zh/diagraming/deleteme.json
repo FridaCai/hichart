@@ -1,0 +1,180 @@
+{
+    "page": {
+        "backgroundColor": "transparent",
+        "width": 1050,
+        "height": 1000,
+        "padding": 20,
+        "showGrid": true,
+        "gridSize": 15,
+        "orientation": "portrait"
+    },
+    "elements": {
+        "165a498ea2a938": {
+            "id": "165a498ea2a938",
+            "name": "rectangle",
+            "title": "矩形",
+            "category": "basic",
+            "group": "",
+            "groupName": null,
+            "locked": false,
+            "link": "",
+            "children": [],
+            "parent": "",
+            "resizeDir": [
+                "tl",
+                "tr",
+                "br",
+                "bl"
+            ],
+            "attribute": {
+                "container": false,
+                "visible": true,
+                "rotatable": true,
+                "linkable": true,
+                "collapsable": false,
+                "collapsed": false,
+                "markerOffset": 5
+            },
+            "dataAttributes": [
+                {
+                    "name": "序号",
+                    "type": "number",
+                    "value": "",
+                    "category": "default",
+                    "id": "165a498ea2a032"
+                },
+                {
+                    "name": "名称",
+                    "type": "string",
+                    "value": "",
+                    "category": "default",
+                    "id": "165a498ea2a562"
+                },
+                {
+                    "name": "所有者",
+                    "type": "string",
+                    "value": "",
+                    "category": "default",
+                    "id": "165a498ea2a9a3"
+                },
+                {
+                    "name": "连接",
+                    "type": "link",
+                    "value": "",
+                    "category": "default",
+                    "id": "165a498ea2ab41"
+                },
+                {
+                    "name": "便笺",
+                    "type": "string",
+                    "value": "",
+                    "category": "default",
+                    "id": "165a498ea2ab0a"
+                }
+            ],
+            "props": {
+                "x": 119,
+                "y": 154,
+                "w": 100,
+                "h": 70,
+                "zindex": 1,
+                "angle": 0
+            },
+            "shapeStyle": {
+                "alpha": 1
+            },
+            "lineStyle": {},
+            "fillStyle": {},
+            "path": [
+                {
+                    "actions": [
+                        {
+                            "action": "move",
+                            "x": "0",
+                            "y": "0"
+                        },
+                        {
+                            "action": "line",
+                            "x": "w",
+                            "y": "0"
+                        },
+                        {
+                            "action": "line",
+                            "x": "w",
+                            "y": "h"
+                        },
+                        {
+                            "action": "line",
+                            "x": "0",
+                            "y": "h"
+                        },
+                        {
+                            "action": "close"
+                        }
+                    ]
+                }
+            ],
+            "fontStyle": {},
+            "textBlock": [
+                {
+                    "position": {
+                        "x": 10,
+                        "y": 0,
+                        "w": "w-20",
+                        "h": "h"
+                    },
+                    "text": ""
+                }
+            ],
+            "anchors": [
+                {
+                    "x": "w/2",
+                    "y": "0"
+                },
+                {
+                    "x": "w/2",
+                    "y": "h"
+                },
+                {
+                    "x": "0",
+                    "y": "h/2"
+                },
+                {
+                    "x": "w",
+                    "y": "h/2"
+                }
+            ]
+        },
+        "165a49a18f3f07": {
+            "id": "165a49a18f3f07",
+            "name": "linker",
+            "text": "",
+            "group": "",
+            "linkerType": "broken",
+            "points": [
+                {
+                    "x": 279,
+                    "y": 189
+                }
+            ],
+            "locked": false,
+            "dataAttributes": [],
+            "props": {
+                "zindex": 2
+            },
+            "lineStyle": {},
+            "from": {
+                "x": 219,
+                "y": 189,
+                "angle": 3.141592653589793,
+                "id": "165a498ea2a938"
+            },
+            "to": {
+                "id": null,
+                "x": 279,
+                "y": 329,
+                "angle": null
+            }
+        }
+    }
+}
