@@ -327,7 +327,7 @@ var Designer = {
                         n = true
                     });
 
-                    //frida
+                    //Frida Test
                     $(document).bind("mouseup.create", function() {
                         $(this).unbind("mouseup.create");
                         $("#designer").unbind("mousemove.creating");
@@ -1057,6 +1057,7 @@ var Designer = {
             var b = $("#designer_canvas");
             var a = $("#canvas_container");
             a.unbind("mousemove.operate").bind("mousemove.operate", function(g) {
+                // console.log('Frida Test');
                 if (Designer.op.state != null) {
                     return
                 }
@@ -1101,7 +1102,16 @@ var Designer = {
                                             a.css("cursor", "move");
                                             Designer.op.shapeSelectable(c.shape);
                                             Designer.op.shapeEditable(c.shape);
+
+
+
+
+                                            // console.log('Frida Test2');
                                             Designer.op.shapeDraggable();
+
+
+
+
                                             if (c.shape.link) {
                                                 Designer.op.linkClickable(c.shape.link, f)
                                             }
@@ -1197,7 +1207,147 @@ var Designer = {
             })
         },
         isMetaKey: false,
-        shapeDraggable: function() {
+        /**
+		 * 形状拖动
+		 */
+		shapeDraggable: function(){
+			var canvas = $("#designer_canvas");
+			var container = $("#canvas_container");
+			canvas.bind("mousedown.drag", function(downE){
+				Utils.hideLinkerCursor();
+				Utils.hideLinkerControls();
+                Designer.op.changeState("dragging");
+                
+
+
+
+
+				//初始坐标，要取相对画布的坐标
+				var begin = Utils.getRelativePos(downE.pageX, downE.pageY, canvas);
+				var selected = Utils.getSelected();
+                
+                
+
+
+
+                //拖动图形时，是否显示对齐线
+                // var snap = true;
+                var snap = false;
+				if(selected.length == 1 && selected[0].name == "linker"){
+					snap = false;
+				}
+				var bounding = null;
+				if(snap){
+					bounding = Utils.getShapesBounding(selected);
+                }
+
+
+				//先获取形状的家族图形，一起移动，父级、子级、兄弟
+				var familyShapes = Utils.getFamilyShapes(selected);
+				selected = selected.concat(familyShapes);
+                
+                //获取包含的图形，一起移动
+				var containedShapes = Utils.getContainedShapes(selected);
+                selected = selected.concat(containedShapes);
+                
+				//获取吸附的图形，一起移动
+				var attachedShapes = Utils.getAttachedShapes(selected);
+				selected = selected.concat(attachedShapes);
+                
+                var exclude = []; //对齐时需要排除的id
+				if(snap){
+					for(var i = 0; i < selected.length; i++){
+						var shape = selected[i];
+						if(shape.name == "linker"){
+							if(shape.from.id && exclude.indexOf(shape.from.id) < 0){
+								exclude.push(shape.from.id);
+							}
+							if(shape.to.id && exclude.indexOf(shape.to.id) < 0){
+								exclude.push(shape.to.id);
+							}
+						}
+						if(exclude.indexOf(shape.id) < 0){
+							exclude.push(shape.id);
+						}
+					}
+                }
+
+				//获取选中形状上的连接线
+				var outlinkers = Utils.getOutlinkers(selected);
+                selected = selected.concat(outlinkers);
+
+                var selectedShape = selected;
+                console.log("Frida Test selectedShape", selectedShape)
+
+
+
+
+
+
+				container.bind("mousemove.drag", function(moveE){
+					$("#link_spot").hide();
+					UI.hideShapeOptions();
+					var now = Utils.getRelativePos(moveE.pageX, moveE.pageY, canvas);
+					//计算和开始时候的偏移量
+					var offset = {
+						x: now.x - begin.x, y: now.y - begin.y
+					};
+					if(snap){
+						var copy = Utils.copy(bounding);
+						copy.x += offset.x;
+						copy.y += offset.y;
+						var snaped = Designer.op.snapLine(copy, exclude);
+						offset = {
+							x: copy.x - bounding.x, y: copy.y - bounding.y 
+						};
+						now = {
+							x: begin.x + offset.x, y: begin.y + offset.y
+						};
+						bounding.x += offset.x;
+						bounding.y += offset.y;
+						if(selectedShape.length == 1 && selectedShape[0].groupName == "boundaryEvent"){
+							if(snaped.attach){
+								selectedShape[0].attachTo = snaped.attach.id;
+							}else{
+								delete selected[0].attachTo;
+							}
+						}
+					}
+					if(offset.x == 0 && offset.y == 0){
+						return;
+                    }
+                    
+
+					Designer.op.moveShape(selected, offset);
+                    
+                    
+                    begin = now;
+					//在mousemove里绑定一个mouseup，目的是为了当鼠标发生了拖动之后，才认为是进行了拖动事件
+					$(document).unbind("mouseup.drop").bind("mouseup.drop", function(){
+						//发生了拖动，修改定义
+						Model.updateMulti(selected);
+						$(document).unbind("mouseup.drop");
+					});
+                });
+                
+
+
+
+
+				$(document).bind("mouseup.drag", function(){
+					UI.showShapeOptions();
+					Designer.op.resetState();
+					container.unbind("mousemove.drag");
+					canvas.unbind("mousedown.drag");
+					$(document).unbind("mouseup.drag");
+					Designer.op.hideTip();
+					Designer.op.hideSnapLine();
+					Utils.showLinkerCursor();
+					Utils.showLinkerControls();
+				});
+			});
+		},
+        shapeDraggable_deprecated: function() {
             var c = $("#designer_canvas");
             var b = $("#canvas_container");
             var a = false;
@@ -2545,16 +2695,26 @@ var Designer = {
 				}
 				//计算连接点的角度
 				container.bind("mousemove.link", function(moveE){
-                    console.log('Frida Test1');
+                    // console.log('Frida Test1');
 
-                    
+
 					container.css("cursor", "default");
-					var now = Utils.getRelativePos(moveE.pageX, moveE.pageY, canvas);
+                    var now = Utils.getRelativePos(moveE.pageX, moveE.pageY, canvas);
+
 					if(createdLinker == null){
-						createdLinker = createLinker(from, now);
+                        createdLinker = createLinker(from, now);
 						Designer.events.push("linkerCreating", createdLinker);
-					}
-					Designer.op.moveLinker(createdLinker, "to", now.x, now.y);
+                    }
+                    
+
+                    Designer.op.moveLinker(createdLinker, "to", now.x, now.y);
+                    
+
+
+
+
+
+
 					//在mousemove里绑定一个mouseup，目的是为了当鼠标发生了拖动之后，才认为是进行了拖动事件
 					$(document).unbind("mouseup.droplinker").bind("mouseup.droplinker", function(){
 						//发生了拖动，修改定义
@@ -2887,99 +3047,111 @@ var Designer = {
                 })
             })
         },
-        moveShape: function(q, h, c) {
-            var r = [];
-            for (var t = 0; t < q.length; t++) {
-                var b = q[t];
-                r.push(b.id)
-            }
-            var w = Utils.restoreScale(h);
-            for (var t = 0; t < q.length; t++) {
-                var b = q[t];
-                if (b.name == "linker") {
-                    var m = b;
-                    var s = m.from;
-                    var d = m.to;
-                    var j = false;
-                    var n = false;
-                    if (!Utils.isSelected(m.id)) {
-                        if (s.id != null && r.indexOf(s.id) >= 0) {
-                            m.from.x += w.x;
-                            m.from.y += w.y;
-                            j = true
-                        }
-                        if (d.id != null && r.indexOf(d.id) >= 0) {
-                            m.to.x += w.x;
-                            m.to.y += w.y;
-                            n = true
-                        }
-                    } else {
-                        if (s.id == null || r.indexOf(s.id) >= 0) {
-                            m.from.x += w.x;
-                            m.from.y += w.y;
-                            j = true
-                        }
-                        if (d.id == null || r.indexOf(d.id) >= 0) {
-                            m.to.x += w.x;
-                            m.to.y += w.y;
-                            n = true
-                        }
-                    }
-                    if (j && n) {
-                        for (var u = 0; u < m.points.length; u++) {
-                            var o = m.points[u];
-                            o.x += w.x;
-                            o.y += w.y
-                        }
-                        var v = $("#" + b.id);
-                        if (v.length > 0) {
-                            var f = v.position();
-                            v.css({
-                                left: f.left += h.x,
-                                top: f.top += h.y
-                            })
-                        }
-                    } else {
-                        if (j || n) {
-                            Designer.painter.renderLinker(m, true)
-                        }
-                    }
-                } else {
-                    a(b);
-                    $(".shape_contour[forshape=" + b.id + "]").css({
-                        left: b.props.x.toScale(),
-                        top: b.props.y.toScale()
-                    })
-                }
-            }
-            var e = Utils.getSelectedLinkerIds();
-            if (q.length == 1 && e.length == 1) {
-                return
-            }
-            if (typeof c == "undefined") {
-                if (e.length > 0) {
-                    var g = Utils.getSelectedIds();
-                    Designer.painter.drawControls(g)
-                } else {
-                    var l = $("#shape_controls");
-                    l.css({
-                        left: parseFloat(l.css("left")) + h.x,
-                        top: parseFloat(l.css("top")) + h.y
-                    })
-                }
-                var k = $("#shape_controls").position();
-                Designer.op.showTip("X: " + Math.round(k.left.restoreScale()) + "&nbsp;&nbsp;Y: " + Math.round(k.top.restoreScale()))
-            }
-            function a(i) {
-                i.props.x += w.x;
-                i.props.y += w.y;
-                var p = $("#" + i.id);
-                p.css({
-                    left: parseFloat(p.css("left")) + h.x,
-                    top: parseFloat(p.css("top")) + h.y
-                })
-            }
-        },
+
+
+        /**
+		 * 移动图形
+		 * @param {} offset 偏移量
+		 */
+		moveShape: function(shapes, offset){
+			var ids = [];
+			for(var i = 0; i < shapes.length; i++){
+				var shape = shapes[i];
+				ids.push(shape.id);
+			}
+			var restored = Utils.restoreScale(offset);
+			for(var i = 0; i < shapes.length; i++){
+				var shape = shapes[i];
+				if(shape.name == "linker"){
+					var linker = shape;
+					var from = linker.from;
+					var to = linker.to;
+					var fromChanged = false;
+					var toChanged = false;
+					if(!Utils.isSelected(linker.id)){
+						if(from.id != null && ids.indexOf(from.id) >= 0){
+                            console.log('Frida Test3')
+							//当起点无连接，或者起点形状也被选中了
+							linker.from.x += restored.x;
+							linker.from.y += restored.y;
+							fromChanged = true;
+						}
+						if(to.id != null && ids.indexOf(to.id) >= 0){
+							linker.to.x += restored.x;
+							linker.to.y += restored.y;
+							toChanged = true;
+						}
+					}else{
+						if(from.id == null || ids.indexOf(from.id) >= 0){
+							//当起点无连接，或者起点形状也被选中了
+							linker.from.x += restored.x;
+							linker.from.y += restored.y;
+							fromChanged = true;
+						}
+						if(to.id == null || ids.indexOf(to.id) >= 0){
+							linker.to.x += restored.x;
+							linker.to.y += restored.y;
+							toChanged = true;
+						}
+					}
+					if(fromChanged && toChanged){
+						for(var pi = 0; pi < linker.points.length; pi++){
+							var p = linker.points[pi];
+							p.x += restored.x;
+							p.y += restored.y;
+						}
+						var shapeBox = $("#" + shape.id);
+						var oriPos = shapeBox.position();
+						shapeBox.css({
+							left: oriPos.left += offset.x,
+							top: oriPos.top += offset.y
+						});
+					}else if(fromChanged || toChanged){
+                        console.log('Frida Test4')
+						Designer.painter.renderLinker(linker, true);
+					}
+				}else{
+					relocateShape(shape);
+					$(".shape_contour[forshape="+shape.id+"]").css({
+						left: shape.props.x.toScale(),
+						top: shape.props.y.toScale()
+					});
+				}
+			}
+
+
+
+			var linkerIds = Utils.getSelectedLinkerIds();
+			//如果选择中只包含一个连接线，不移动选择框
+			if(shapes.length == 1 && linkerIds.length == 1){
+				return;
+			}
+			if(linkerIds.length > 0){
+				var selectedIds = Utils.getSelectedIds();
+				Designer.painter.drawControls(selectedIds);
+			}else{
+				var controls = $("#shape_controls");
+				controls.css({
+					left: parseFloat(controls.css("left")) + offset.x,
+					top: parseFloat(controls.css("top")) + offset.y
+				});
+			}
+			var controlPos = $("#shape_controls").position();
+			Designer.op.showTip("X: " + Math.round(controlPos.left.restoreScale()) + "&nbsp;&nbsp;Y: " + Math.round(controlPos.top.restoreScale()));
+			/**
+			 * 重新放置图形
+			 */
+			function relocateShape(shape){
+				shape.props.x += restored.x;
+				shape.props.y += restored.y;
+				var shapeBox = $("#" + shape.id);
+				shapeBox.css({
+					left: parseFloat(shapeBox.css("left")) + offset.x,
+					top: parseFloat(shapeBox.css("top")) + offset.y
+				});
+			}
+		},
+
         /**
 		 * 移动连接线，拖动端点
 		 * @param {} linker
@@ -2988,9 +3160,13 @@ var Designer = {
 		 * @param {} pageY
 		 */
 		moveLinker: function(linker, point, x, y){
+            
+
 			var newPos = null;
 			var linkedShape = null;
-			var focus = Utils.getShapeByPosition(x, y, true);
+            var focus = Utils.getShapeByPosition(x, y, true);
+            
+
 			Designer.op.hideLinkPoint();
 			if(focus != null){
 				var shape = focus.shape;
@@ -3041,12 +3217,17 @@ var Designer = {
 					}
 				}
 			}else{
+
+                // console.log('Frida Test 2');
 				Designer.op.hideLinkPoint();
 				Utils.hideAnchors();
 				newPos = {x: x.restoreScale(), y: y.restoreScale()};
 				newPos.angle = null;
-				linkedShape = null;
-			}
+                linkedShape = null;
+            }
+            
+
+
 			if(point == "from"){
 				linker.from.id = linkedShape;
 				linker.from.x = newPos.x;
@@ -3061,6 +3242,11 @@ var Designer = {
 					}
 				}
 			}else{
+
+
+
+
+                //Frida Test: here
 				linker.to.x = newPos.x;
 				linker.to.y = newPos.y;
 				linker.to.id = linkedShape;
@@ -3075,114 +3261,8 @@ var Designer = {
 				}
 			}
 			Designer.painter.renderLinker(linker, true);
-		},
-        moveLinker_deprecated: function(i, q, f, e) {
-            var b = null;
-            var j = null;
-            var m = Utils.getShapeByPosition(f, e, true);
-            Designer.op.hideLinkPoint();
-            if (m != null) {
-                var a = m.shape;
-                Utils.showAnchors(a);
-                j = a.id;
-                if (m.type == "bounding") {
-                    b = m.linkPoint;
-                    Designer.op.showLinkPoint(Utils.toScale(b))
-                } else {
-                    if (m.type == "shape") {
-                        var s;
-                        var d;
-                        if (q == "from") {
-                            s = {
-                                x: i.to.x,
-                                y: i.to.y
-                            };
-                            d = i.to.id
-                        } else {
-                            s = {
-                                x: i.from.x,
-                                y: i.from.y
-                            };
-                            d = i.from.id
-                        }
-                        if (a.id == d) {
-                            Designer.op.hideLinkPoint();
-                            b = {
-                                x: f.restoreScale(),
-                                y: e.restoreScale()
-                            };
-                            b.angle = null;
-                            j = null
-                        } else {
-                            var k = a.getAnchors();
-                            var h = -1;
-                            var l;
-                            var t = {
-                                x: a.props.x + a.props.w / 2,
-                                y: a.props.y + a.props.h / 2
-                            };
-                            for (var r = 0; r < k.length; r++) {
-                                var o = k[r];
-                                var g = Utils.getRotated(t, {
-                                    x: a.props.x + o.x,
-                                    y: a.props.y + o.y
-                                }, a.props.angle);
-                                var p = Utils.measureDistance(g, s);
-                                if (h == -1 || p < h) {
-                                    h = p;
-                                    l = g
-                                }
-                            }
-                            var c = Utils.getPointAngle(a.id, l.x, l.y, 7);
-                            b = {
-                                x: l.x,
-                                y: l.y,
-                                angle: c
-                            };
-                            Designer.op.showLinkPoint(Utils.toScale(b))
-                        }
-                    }
-                }
-            } else {
-                Designer.op.hideLinkPoint();
-                Utils.hideAnchors();
-                var n = Designer.op.snapLinkerLine(f, e);
-                b = {
-                    x: n.x.restoreScale(),
-                    y: n.y.restoreScale()
-                };
-                b.angle = null;
-                j = null
-            }
-            if (q == "from") {
-                i.from.id = j;
-                i.from.x = b.x;
-                i.from.y = b.y;
-                i.from.angle = b.angle;
-                if (j == null) {
-                    if (b.x >= i.to.x - 6 && b.x <= i.to.x + 6) {
-                        i.from.x = i.to.x
-                    }
-                    if (b.y >= i.to.y - 6 && b.y <= i.to.y + 6) {
-                        i.from.y = i.to.y
-                    }
-                }
-            } else {
-                i.to.x = b.x;
-                i.to.y = b.y;
-                i.to.id = j;
-                i.to.angle = b.angle;
-                if (j == null) {
-                    if (b.x >= i.from.x - 6 && b.x <= i.from.x + 6) {
-                        i.to.x = i.from.x
-                    }
-                    if (b.y >= i.from.y - 6 && b.y <= i.from.y + 6) {
-                        i.to.y = i.from.y
-                    }
-                }
-            }
-            Designer.painter.renderLinker(i, true)
         },
+        
         showLinkPoint: function(a) {
             var c = $("<canvas class='link_point_canvas' width=32 height=32></canvas>").appendTo($("#designer_canvas"));
             var b = c[0].getContext("2d");
@@ -5303,16 +5383,30 @@ var Designer = {
 		 * @param {} linker 连接线对象
 		 */
 		renderLinker: function(linker, pointChanged){
+            // console.log('Frida Test 3')
+            console.log('before change linker.points', JSON.stringify(linker.points));
+            
+
 			if(pointChanged){
 				//如果渲染时，连接线的点发成了改变，重新查找
-				linker.points = Utils.getLinkerPoints(linker);
-			}
+                linker.points = Utils.getLinkerPoints(linker);
+                console.log('after change linker.points', JSON.stringify(linker.points));
+            }
+            
+
+
+
 			//重新获取一下points，有些错误图形可能没有points
 			if(linker.linkerType == "curve" || linker.linkerType == "broken"){
 				if(!linker.points || linker.points.length == 0){
 					linker.points = Utils.getLinkerPoints(linker);
 				}
-			}
+            }
+            
+
+
+
+
 			//找到连接线上的点
 			var points = linker.points;
 			var from = linker.from;
@@ -5354,13 +5448,19 @@ var Designer = {
 				y: minY,
 				w: maxX - minX,
 				h: maxY - minY
-			}
+            }
+            
+
+
+
 			var linkerBox = $("#" + linker.id);
 			if(linkerBox.length == 0){
 				//如果不存在，要执行创建
 				var superCanvas = $("#designer_canvas");
 				linkerBox = $("<div id='"+linker.id+"' class='shape_box linker_box'><canvas class='shape_canvas'></canvas></div>").appendTo(superCanvas);
-			}
+            }
+            
+
 			var linkerCanvas = linkerBox.find(".shape_canvas");
 			linkerCanvas.attr({
 				width: (box.w + 20).toScale(),
@@ -5599,335 +5699,7 @@ var Designer = {
 				}
 			}
 		},
-        renderLinker_deprecated: function(h, k) {
-            if (k) {
-                h.points = Utils.getLinkerPoints(h)
-            }
-            if (h.linkerType == "curve" || h.linkerType == "broken") {
-                if (!h.points || h.points.length == 0) {
-                    h.points = Utils.getLinkerPoints(h)
-                }
-            }
-            var q = h.points;
-            var o = Utils.copy(h.from);
-            var a = Utils.copy(h.to);
-            if (h.attribute && h.attribute.collapseBy) {
-                $("#" + h.id).hide();
-                return
-            } else {
-                $("#" + h.id).show()
-            }
-            var p = Utils.getEndpointAngle(h, "from");
-            var d = Utils.getEndpointAngle(h, "to");
-            var b = Utils.getLinkerLineStyle(h.lineStyle);
-            l(o, h, b.beginArrowStyle, p);
-            l(a, h, b.endArrowStyle, d);
-            var B = a.x;
-            var x = a.y;
-            var y = o.x;
-            var w = o.y;
-            if (a.x < o.x) {
-                B = a.x;
-                y = o.x
-            } else {
-                B = o.x;
-                y = a.x
-            }
-            if (a.y < o.y) {
-                x = a.y;
-                w = o.y
-            } else {
-                x = o.y;
-                w = a.y
-            }
-            for (var r = 0; r < q.length; r++) {
-                var n = q[r];
-                if (n.x < B) {
-                    B = n.x
-                } else {
-                    if (n.x > y) {
-                        y = n.x
-                    }
-                }
-                if (n.y < x) {
-                    x = n.y
-                } else {
-                    if (n.y > w) {
-                        w = n.y
-                    }
-                }
-            }
-            var f = {
-                x: B,
-                y: x,
-                w: y - B,
-                h: w - x
-            };
-            var C = $("#" + h.id);
-            if (C.length == 0) {
-                var g = $("#designer_canvas");
-                C = $("<div id='" + h.id + "' class='shape_box linker_box'><canvas class='shape_canvas'></canvas></div>").appendTo(g)
-            }
-            if (!Model.getShapeById(h.id)) {
-                C.css("z-index", Model.orderList.length + 1)
-            }
-            var A = C.find(".shape_canvas");
-            A.attr({
-                width: (f.w + 20).toScale(),
-                height: (f.h + 20).toScale()
-            });
-            C.css({
-                left: (f.x - 10).toScale(),
-                top: (f.y - 10).toScale(),
-                width: (f.w + 20).toScale(),
-                height: (f.h + 20).toScale()
-            });
-            var m = A[0].getContext("2d");
-            m.scale(Designer.config.scale, Designer.config.scale);
-            m.translate(10, 10);
-            var s = Utils.getLinkerLineStyle(h.lineStyle);
-            m.lineWidth = s.lineWidth;
-            m.strokeStyle = "rgb(" + s.lineColor + ")";
-            m.fillStyle = "rgb(" + s.lineColor + ")";
-            m.save();
-            var z = {
-                x: o.x - f.x,
-                y: o.y - f.y
-            };
-            var c = {
-                x: a.x - f.x,
-                y: a.y - f.y
-            };
-            m.save();
-            if (s.lineStyle == "dashed") {
-                this.setLineDash(m, [s.lineWidth * 5, s.lineWidth * 2])
-            } else {
-                if (s.lineStyle == "dot") {
-                    this.setLineDash(m, [s.lineWidth, s.lineWidth * 1.5])
-                } else {
-                    if (s.lineStyle == "dashdot") {
-                        this.setLineDash(m, [s.lineWidth * 5, s.lineWidth * 2, s.lineWidth, s.lineWidth * 2])
-                    }
-                }
-            }
-            m.lineJoin = "round";
-            m.beginPath();
-            this.actions.move.call(m, z);
-            if (h.linkerType == "curve") {
-                var v = q[0];
-                var u = q[1];
-                var t = {
-                    x1: v.x - f.x,
-                    y1: v.y - f.y,
-                    x2: u.x - f.x,
-                    y2: u.y - f.y,
-                    x: c.x,
-                    y: c.y
-                };
-                this.actions.curve.call(m, t)
-            } else {
-                for (var r = 0; r < q.length; r++) {
-                    var D = q[r];
-                    this.actions.line.call(m, {
-                        x: D.x - f.x,
-                        y: D.y - f.y
-                    })
-                }
-                this.actions.line.call(m, c)
-            }
-            var j = Utils.isSelected(h.id);
-            if (j) {
-                m.shadowBlur = 4;
-                m.shadowColor = "#833";
-                if (h.linkerType == "curve" && Utils.getSelectedIds().length == 1) {}
-            }
-            m.stroke();
-            m.restore();
-            delete m.webkitLineDash;
-            e(z, p, o.id, s.beginArrowStyle, h, o.angle);
-            e(c, d, a.id, s.endArrowStyle, h, a.angle);
-            m.restore();
-            this.renderLinkerText(h);
-            function l(M, H, i, J) {
-                if (M.id) {
-                    var E = Model.getShapeById(M.id);
-                    if (E) {
-                        var G = {
-                            x: 0,
-                            y: 0
-                        };
-                        var I = Utils.getShapeLineStyle(E.lineStyle);
-                        var L = Utils.getLinkerLineStyle(H.lineStyle);
-                        if (i == "none" || i == "cross") {
-                            G.x = -I.lineWidth / 2
-                        } else {
-                            if (i == "solidArrow" || i == "dashedArrow") {
-                                G.x = -I.lineWidth / 2 - L.lineWidth * 1.3
-                            } else {
-                                if (i == "solidDiamond" || i == "dashedDiamond") {
-                                    G.x = -I.lineWidth / 2 - L.lineWidth
-                                } else {
-                                    G.x = -I.lineWidth / 2 - L.lineWidth / 2
-                                }
-                            }
-                        }
-                        var K = {
-                            x: 0,
-                            y: 0
-                        };
-                        var F = Utils.getRotated(K, G, J);
-                        M.x += F.x;
-                        M.y += F.y
-                    }
-                }
-            }
-            function e(W, M, Q, Y, R, E) {
-                if (Y == "normal") {
-                    var S = 12;
-                    var ac = Math.PI / 5;
-                    var V = S / Math.cos(ac);
-                    var L = W.x - V * Math.cos(M - ac);
-                    var K = W.y - V * Math.sin(M - ac);
-                    var O = W.x - V * Math.sin(Math.PI / 2 - M - ac);
-                    var N = W.y - V * Math.cos(Math.PI / 2 - M - ac);
-                    m.beginPath();
-                    m.moveTo(L, K);
-                    m.lineTo(W.x, W.y);
-                    m.lineTo(O, N);
-                    m.stroke()
-                } else {
-                    if (Y == "solidArrow") {
-                        var S = 12;
-                        var ac = Math.PI / 10;
-                        var V = S / Math.cos(ac);
-                        var L = W.x - V * Math.cos(M - ac);
-                        var K = W.y - V * Math.sin(M - ac);
-                        var O = W.x - V * Math.sin(Math.PI / 2 - M - ac);
-                        var N = W.y - V * Math.cos(Math.PI / 2 - M - ac);
-                        m.beginPath();
-                        m.moveTo(W.x, W.y);
-                        m.lineTo(L, K);
-                        m.lineTo(O, N);
-                        m.lineTo(W.x, W.y);
-                        m.closePath();
-                        m.fill();
-                        m.stroke()
-                    } else {
-                        if (Y == "dashedArrow") {
-                            m.save();
-                            var S = 12;
-                            var ac = Math.PI / 10;
-                            var V = S / Math.cos(ac);
-                            var L = W.x - V * Math.cos(M - ac);
-                            var K = W.y - V * Math.sin(M - ac);
-                            var O = W.x - V * Math.sin(Math.PI / 2 - M - ac);
-                            var N = W.y - V * Math.cos(Math.PI / 2 - M - ac);
-                            m.beginPath();
-                            m.moveTo(W.x, W.y);
-                            m.lineTo(L, K);
-                            m.lineTo(O, N);
-                            m.lineTo(W.x, W.y);
-                            m.closePath();
-                            m.fillStyle = "white";
-                            m.fill();
-                            m.stroke();
-                            m.restore()
-                        } else {
-                            if (Y == "solidCircle") {
-                                m.save();
-                                var i = 4;
-                                var J = W.x - i * Math.cos(M);
-                                var I = W.y - i * Math.sin(M);
-                                m.beginPath();
-                                m.arc(J, I, i, 0, Math.PI * 2, false);
-                                m.closePath();
-                                m.fill();
-                                m.stroke();
-                                m.restore()
-                            } else {
-                                if (Y == "dashedCircle") {
-                                    m.save();
-                                    var i = 4;
-                                    var J = W.x - i * Math.cos(M);
-                                    var I = W.y - i * Math.sin(M);
-                                    m.beginPath();
-                                    m.arc(J, I, i, 0, Math.PI * 2, false);
-                                    m.closePath();
-                                    m.fillStyle = "white";
-                                    m.fill();
-                                    m.stroke();
-                                    m.restore()
-                                } else {
-                                    if (Y == "solidDiamond") {
-                                        m.save();
-                                        var S = 8;
-                                        var ac = Math.PI / 7;
-                                        var V = S / Math.cos(ac);
-                                        var L = W.x - V * Math.cos(M - ac);
-                                        var K = W.y - V * Math.sin(M - ac);
-                                        var O = W.x - V * Math.sin(Math.PI / 2 - M - ac);
-                                        var N = W.y - V * Math.cos(Math.PI / 2 - M - ac);
-                                        var U = W.x - S * 2 * Math.cos(M);
-                                        var T = W.y - S * 2 * Math.sin(M);
-                                        m.beginPath();
-                                        m.moveTo(W.x, W.y);
-                                        m.lineTo(L, K);
-                                        m.lineTo(U, T);
-                                        m.lineTo(O, N);
-                                        m.lineTo(W.x, W.y);
-                                        m.closePath();
-                                        m.fill();
-                                        m.stroke();
-                                        m.restore()
-                                    } else {
-                                        if (Y == "dashedDiamond") {
-                                            m.save();
-                                            var S = 8;
-                                            var ac = Math.PI / 7;
-                                            var V = S / Math.cos(ac);
-                                            var L = W.x - V * Math.cos(M - ac);
-                                            var K = W.y - V * Math.sin(M - ac);
-                                            var O = W.x - V * Math.sin(Math.PI / 2 - M - ac);
-                                            var N = W.y - V * Math.cos(Math.PI / 2 - M - ac);
-                                            var U = W.x - S * 2 * Math.cos(M);
-                                            var T = W.y - S * 2 * Math.sin(M);
-                                            m.beginPath();
-                                            m.moveTo(W.x, W.y);
-                                            m.lineTo(L, K);
-                                            m.lineTo(U, T);
-                                            m.lineTo(O, N);
-                                            m.lineTo(W.x, W.y);
-                                            m.closePath();
-                                            m.fillStyle = "white";
-                                            m.fill();
-                                            m.stroke();
-                                            m.restore()
-                                        } else {
-                                            if (Y == "cross") {
-                                                var H = 6;
-                                                var P = 14;
-                                                var ab = H * Math.cos(Math.PI / 2 - M);
-                                                var aa = H * Math.sin(Math.PI / 2 - M);
-                                                var Z = W.x + ab;
-                                                var G = W.y - aa;
-                                                var U = W.x - P * Math.cos(M);
-                                                var T = W.y - P * Math.sin(M);
-                                                var X = U - ab;
-                                                var F = T + aa;
-                                                m.beginPath();
-                                                m.moveTo(Z, G);
-                                                m.lineTo(X, F);
-                                                m.stroke()
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
+       
         renderLinkerText: function(h) {
             var g = $("#" + h.id);
             var b = g.find(".text_canvas");
@@ -7802,6 +7574,28 @@ var Utils = {
             }
         }
     },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     getLinkerPoints: function(linker){
 		var points = [];
 		if(linker.linkerType == "broken"){
@@ -7811,7 +7605,9 @@ var Utils = {
 			var xDistance = Math.abs(to.x - from.x);
 			var yDistance = Math.abs(to.y - from.y);
 			var minDistance = 30; //最小距离，比如起点向上，终点在下方，则先要往上画minDistance的距离
-			//折线，取折点
+            
+            
+            //折线，取折点
 			if(from.id != null && to.id != null){
 				//起点和终点都连接了形状
 				var fromDir = this.getAngleDir(from.angle); //起点方向
@@ -8265,6 +8061,20 @@ var Utils = {
 					points.reverse();
 				}
 			}else if(from.id != null || to.id != null){
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 				//只有起点或终点连接了形状
 				//连接了形状的端点被认为是固定点，另一点被认为是活动的点
 				var fixed, active, reverse, angle;
@@ -8278,8 +8088,15 @@ var Utils = {
 					active = from;
 					reverse = true; //如果固定点是终点，需要把得到的点逆序，因为绘制时是从起点开始的，而此处计算获得的点将是从终点开始
 					angle = to.angle
-				}
-				var props = Model.getShapeById(fixed.id).props;
+                }
+                
+
+
+                console.log('angle', angle)
+                var props = Model.getShapeById(fixed.id).props;
+                
+
+
 				if(angle >= pi / 4 && angle < pi / 4 * 3){
 					//起点角度为向上
 					if(active.y < fixed.y){
@@ -8399,6 +8216,7 @@ var Utils = {
 				}else if(angle >= pi / 4 * 5 && angle < pi / 4 * 7){
 					//起点角度为向下
 					if(active.y > fixed.y){
+                        // console.log('Frida Test 4');
 						if(xDistance >= yDistance){
 							points.push({x: fixed.x, y: active.y});
 						}else{
@@ -8497,15 +8315,34 @@ var Utils = {
 				if(reverse){
 					points.reverse();
 				}
-			}else{
+            
+            
+
+
+
+
+
+
+
+
+
+
+
+
+            
+            
+            
+            
+            
+            }else{
 				//折线的起点和终点都没有角度(没有连接形状)
 				if(xDistance >= yDistance){
-					//如果宽大于高，连接线整体方向为水平
+                    //如果宽大于高，连接线整体方向为水平
 					var half = (to.x - from.x) / 2;
 					points.push({x: from.x + half, y: from.y});
 					points.push({x: from.x + half, y: to.y});
 				}else{
-					//否则为垂直
+                    //否则为垂直
 					var half = (to.y - from.y) / 2;
 					points.push({x: from.x, y: from.y + half});
 					points.push({x: to.x, y: from.y + half});
@@ -8547,1179 +8384,33 @@ var Utils = {
 			points.push(getControlPoint(to, from));
 		}
 		return points;
-	},
-    getLinkerPoints_deprecated: function(t) {
-        var A = [];
-        if (t.linkerType == "broken") {
-            var C = Math.PI;
-            var w = t.from;
-            var d = t.to;
-            var m = Math.abs(d.x - w.x);
-            var D = Math.abs(d.y - w.y);
-            var r = 30;
-            if (w.id != null && d.id != null) {
-                var c = this.getAngleDir(w.angle);
-                var b = this.getAngleDir(d.angle);
-                var g, i, l;
-                if (c == 1 && b == 1) {
-                    if (w.y < d.y) {
-                        g = w;
-                        i = d;
-                        l = false
-                    } else {
-                        g = d;
-                        i = w;
-                        l = true
-                    }
-                    var h = Model.getShapeById(g.id).props;
-                    var v = Model.getShapeById(i.id).props;
-                    if (i.x >= h.x - r && i.x <= h.x + h.w + r) {
-                        var o;
-                        if (i.x < h.x + h.w / 2) {
-                            o = h.x - r
-                        } else {
-                            o = h.x + h.w + r
-                        }
-                        var n = g.y - r;
-                        A.push({
-                            x: g.x,
-                            y: n
-                        });
-                        n = i.y - r;
-                        A.push({
-                            x: i.x,
-                            y: n
-                        })
-                    } else {
-                        var n = g.y - r;
-                        A.push({
-                            x: g.x,
-                            y: n
-                        });
-                        A.push({
-                            x: i.x,
-                            y: n
-                        })
-                    }
-                } else {
-                    if (c == 3 && b == 3) {
-                        if (w.y > d.y) {
-                            g = w;
-                            i = d;
-                            l = false
-                        } else {
-                            g = d;
-                            i = w;
-                            l = true
-                        }
-                        var h = Model.getShapeById(g.id).props;
-                        var v = Model.getShapeById(i.id).props;
-                        if (i.x >= h.x - r && i.x <= h.x + h.w + r) {
-                            var n = g.y + r;
-                            var o;
-                            if (i.x < h.x + h.w / 2) {
-                                o = h.x - r
-                            } else {
-                                o = h.x + h.w + r
-                            }
-                            A.push({
-                                x: g.x,
-                                y: n
-                            });
-                            n = i.y + r;
-                            A.push({
-                                x: i.x,
-                                y: n
-                            })
-                        } else {
-                            var n = g.y + r;
-                            A.push({
-                                x: g.x,
-                                y: n
-                            });
-                            A.push({
-                                x: i.x,
-                                y: n
-                            })
-                        }
-                    } else {
-                        if (c == 2 && b == 2) {
-                            if (w.x > d.x) {
-                                g = w;
-                                i = d;
-                                l = false
-                            } else {
-                                g = d;
-                                i = w;
-                                l = true
-                            }
-                            var h = Model.getShapeById(g.id).props;
-                            var v = Model.getShapeById(i.id).props;
-                            if (i.y >= h.y - r && i.y <= h.y + h.h + r) {
-                                var o = g.x + r;
-                                var n;
-                                if (i.y < h.y + h.h / 2) {
-                                    n = h.y - r
-                                } else {
-                                    n = h.y + h.h + r
-                                }
-                                A.push({
-                                    x: o,
-                                    y: g.y
-                                });
-                                o = i.x + r;
-                                A.push({
-                                    x: o,
-                                    y: i.y
-                                })
-                            } else {
-                                var o = g.x + r;
-                                A.push({
-                                    x: o,
-                                    y: g.y
-                                });
-                                A.push({
-                                    x: o,
-                                    y: i.y
-                                })
-                            }
-                        } else {
-                            if (c == 4 && b == 4) {
-                                if (w.x < d.x) {
-                                    g = w;
-                                    i = d;
-                                    l = false
-                                } else {
-                                    g = d;
-                                    i = w;
-                                    l = true
-                                }
-                                var h = Model.getShapeById(g.id).props;
-                                var v = Model.getShapeById(i.id).props;
-                                if (i.y >= h.y - r && i.y <= h.y + h.h + r) {
-                                    var o = g.x - r;
-                                    var n;
-                                    if (i.y < h.y + h.h / 2) {
-                                        n = h.y - r
-                                    } else {
-                                        n = h.y + h.h + r
-                                    }
-                                    A.push({
-                                        x: o,
-                                        y: g.y
-                                    });
-                                    o = i.x - r;
-                                    A.push({
-                                        x: o,
-                                        y: i.y
-                                    })
-                                } else {
-                                    var o = g.x - r;
-                                    A.push({
-                                        x: o,
-                                        y: g.y
-                                    });
-                                    A.push({
-                                        x: o,
-                                        y: i.y
-                                    })
-                                }
-                            } else {
-                                if ((c == 1 && b == 3) || (c == 3 && b == 1)) {
-                                    if (c == 1) {
-                                        g = w;
-                                        i = d;
-                                        l = false
-                                    } else {
-                                        g = d;
-                                        i = w;
-                                        l = true
-                                    }
-                                    var h = Model.getShapeById(g.id).props;
-                                    var v = Model.getShapeById(i.id).props;
-                                    if (i.y <= g.y) {
-                                        var n = g.y - D / 2;
-                                        A.push({
-                                            x: g.x,
-                                            y: n
-                                        });
-                                        A.push({
-                                            x: i.x,
-                                            y: n
-                                        })
-                                    } else {
-                                        var a = h.x + h.w;
-                                        var j = v.x + v.w;
-                                        var n = g.y - r;
-                                        var o;
-                                        if (j >= h.x && v.x <= a) {
-                                            var z = h.x + h.w / 2;
-                                            if (i.x < z) {
-                                                o = h.x < v.x ? h.x - r : v.x - r
-                                            } else {
-                                                o = a > j ? a + r : j + r
-                                            }
-                                            if (v.y < g.y) {
-                                                n = v.y - r
-                                            }
-                                        } else {
-                                            if (i.x < g.x) {
-                                                o = j + (h.x - j) / 2
-                                            } else {
-                                                o = a + (v.x - a) / 2
-                                            }
-                                        }
-                                        A.push({
-                                            x: g.x,
-                                            y: n
-                                        });
-                                        A.push({
-                                            x: o,
-                                            y: n
-                                        });
-                                        n = i.y + r;
-                                        A.push({
-                                            x: o,
-                                            y: n
-                                        });
-                                        A.push({
-                                            x: i.x,
-                                            y: n
-                                        })
-                                    }
-                                } else {
-                                    if ((c == 2 && b == 4) || (c == 4 && b == 2)) {
-                                        if (c == 2) {
-                                            g = w;
-                                            i = d;
-                                            l = false
-                                        } else {
-                                            g = d;
-                                            i = w;
-                                            l = true
-                                        }
-                                        var h = Model.getShapeById(g.id).props;
-                                        var v = Model.getShapeById(i.id).props;
-                                        if (i.x > g.x) {
-                                            var o = g.x + m / 2;
-                                            A.push({
-                                                x: o,
-                                                y: g.y
-                                            });
-                                            A.push({
-                                                x: o,
-                                                y: i.y
-                                            })
-                                        } else {
-                                            var u = h.y + h.h;
-                                            var p = v.y + v.h;
-                                            var o = g.x + r;
-                                            var n;
-                                            if (p >= h.y && v.y <= u) {
-                                                var z = h.y + h.h / 2;
-                                                if (i.y < z) {
-                                                    n = h.y < v.y ? h.y - r : v.y - r
-                                                } else {
-                                                    n = u > p ? u + r : p + r
-                                                }
-                                                if (v.x + v.w > g.x) {
-                                                    o = v.x + v.w + r
-                                                }
-                                            } else {
-                                                if (i.y < g.y) {
-                                                    n = p + (h.y - p) / 2
-                                                } else {
-                                                    n = u + (v.y - u) / 2
-                                                }
-                                            }
-                                            A.push({
-                                                x: o,
-                                                y: g.y
-                                            });
-                                            A.push({
-                                                x: o,
-                                                y: n
-                                            });
-                                            o = i.x - r;
-                                            A.push({
-                                                x: o,
-                                                y: n
-                                            });
-                                            A.push({
-                                                x: o,
-                                                y: i.y
-                                            })
-                                        }
-                                    } else {
-                                        if ((c == 1 && b == 2) || (c == 2 && b == 1)) {
-                                            if (c == 2) {
-                                                g = w;
-                                                i = d;
-                                                l = false
-                                            } else {
-                                                g = d;
-                                                i = w;
-                                                l = true
-                                            }
-                                            var h = Model.getShapeById(g.id).props;
-                                            var v = Model.getShapeById(i.id).props;
-                                            if (i.x > g.x && i.y > g.y) {
-                                                A.push({
-                                                    x: i.x,
-                                                    y: g.y
-                                                })
-                                            } else {
-                                                if (i.x > g.x && v.x > g.x) {
-                                                    var o;
-                                                    if (v.x - g.x < r * 2) {
-                                                        o = g.x + (v.x - g.x) / 2
-                                                    } else {
-                                                        o = g.x + r
-                                                    }
-                                                    var n = i.y - r;
-                                                    A.push({
-                                                        x: o,
-                                                        y: g.y
-                                                    });
-                                                    A.push({
-                                                        x: o,
-                                                        y: n
-                                                    });
-                                                    A.push({
-                                                        x: i.x,
-                                                        y: n
-                                                    })
-                                                } else {
-                                                    if (i.x <= g.x && i.y > h.y + h.h) {
-                                                        var u = h.y + h.h;
-                                                        var o = g.x + r;
-                                                        var n;
-                                                        if (i.y - u < r * 2) {
-                                                            n = u + (i.y - u) / 2
-                                                        } else {
-                                                            n = i.y - r
-                                                        }
-                                                        A.push({
-                                                            x: o,
-                                                            y: g.y
-                                                        });
-                                                        A.push({
-                                                            x: o,
-                                                            y: n
-                                                        });
-                                                        A.push({
-                                                            x: i.x,
-                                                            y: n
-                                                        })
-                                                    } else {
-                                                        var o;
-                                                        var j = v.x + v.w;
-                                                        if (j > g.x) {
-                                                            o = j + r
-                                                        } else {
-                                                            o = g.x + r
-                                                        }
-                                                        var n;
-                                                        if (i.y < h.y) {
-                                                            n = i.y - r
-                                                        } else {
-                                                            n = h.y - r
-                                                        }
-                                                        A.push({
-                                                            x: o,
-                                                            y: g.y
-                                                        });
-                                                        A.push({
-                                                            x: o,
-                                                            y: n
-                                                        });
-                                                        A.push({
-                                                            x: i.x,
-                                                            y: n
-                                                        })
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            if ((c == 1 && b == 4) || (c == 4 && b == 1)) {
-                                                if (c == 4) {
-                                                    g = w;
-                                                    i = d;
-                                                    l = false
-                                                } else {
-                                                    g = d;
-                                                    i = w;
-                                                    l = true
-                                                }
-                                                var h = Model.getShapeById(g.id).props;
-                                                var v = Model.getShapeById(i.id).props;
-                                                var j = v.x + v.w;
-                                                if (i.x < g.x && i.y > g.y) {
-                                                    A.push({
-                                                        x: i.x,
-                                                        y: g.y
-                                                    })
-                                                } else {
-                                                    if (i.x < g.x && j < g.x) {
-                                                        var o;
-                                                        if (g.x - j < r * 2) {
-                                                            o = j + (g.x - j) / 2
-                                                        } else {
-                                                            o = g.x - r
-                                                        }
-                                                        var n = i.y - r;
-                                                        A.push({
-                                                            x: o,
-                                                            y: g.y
-                                                        });
-                                                        A.push({
-                                                            x: o,
-                                                            y: n
-                                                        });
-                                                        A.push({
-                                                            x: i.x,
-                                                            y: n
-                                                        })
-                                                    } else {
-                                                        if (i.x >= g.x && i.y > h.y + h.h) {
-                                                            var u = h.y + h.h;
-                                                            var o = g.x - r;
-                                                            var n;
-                                                            if (i.y - u < r * 2) {
-                                                                n = u + (i.y - u) / 2
-                                                            } else {
-                                                                n = i.y - r
-                                                            }
-                                                            A.push({
-                                                                x: o,
-                                                                y: g.y
-                                                            });
-                                                            A.push({
-                                                                x: o,
-                                                                y: n
-                                                            });
-                                                            A.push({
-                                                                x: i.x,
-                                                                y: n
-                                                            })
-                                                        } else {
-                                                            var o;
-                                                            if (v.x < g.x) {
-                                                                o = v.x - r
-                                                            } else {
-                                                                o = g.x - r
-                                                            }
-                                                            var n;
-                                                            if (i.y < h.y) {
-                                                                n = i.y - r
-                                                            } else {
-                                                                n = h.y - r
-                                                            }
-                                                            A.push({
-                                                                x: o,
-                                                                y: g.y
-                                                            });
-                                                            A.push({
-                                                                x: o,
-                                                                y: n
-                                                            });
-                                                            A.push({
-                                                                x: i.x,
-                                                                y: n
-                                                            })
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                if ((c == 2 && b == 3) || (c == 3 && b == 2)) {
-                                                    if (c == 2) {
-                                                        g = w;
-                                                        i = d;
-                                                        l = false
-                                                    } else {
-                                                        g = d;
-                                                        i = w;
-                                                        l = true
-                                                    }
-                                                    var h = Model.getShapeById(g.id).props;
-                                                    var v = Model.getShapeById(i.id).props;
-                                                    if (i.x > g.x && i.y < g.y) {
-                                                        A.push({
-                                                            x: i.x,
-                                                            y: g.y
-                                                        })
-                                                    } else {
-                                                        if (i.x > g.x && v.x > g.x) {
-                                                            var o;
-                                                            if (v.x - g.x < r * 2) {
-                                                                o = g.x + (v.x - g.x) / 2
-                                                            } else {
-                                                                o = g.x + r
-                                                            }
-                                                            var n = i.y + r;
-                                                            A.push({
-                                                                x: o,
-                                                                y: g.y
-                                                            });
-                                                            A.push({
-                                                                x: o,
-                                                                y: n
-                                                            });
-                                                            A.push({
-                                                                x: i.x,
-                                                                y: n
-                                                            })
-                                                        } else {
-                                                            if (i.x <= g.x && i.y < h.y) {
-                                                                var o = g.x + r;
-                                                                var n;
-                                                                if (h.y - i.y < r * 2) {
-                                                                    n = i.y + (h.y - i.y) / 2
-                                                                } else {
-                                                                    n = i.y + r
-                                                                }
-                                                                A.push({
-                                                                    x: o,
-                                                                    y: g.y
-                                                                });
-                                                                A.push({
-                                                                    x: o,
-                                                                    y: n
-                                                                });
-                                                                A.push({
-                                                                    x: i.x,
-                                                                    y: n
-                                                                })
-                                                            } else {
-                                                                var o;
-                                                                var j = v.x + v.w;
-                                                                if (j > g.x) {
-                                                                    o = j + r
-                                                                } else {
-                                                                    o = g.x + r
-                                                                }
-                                                                var n;
-                                                                if (i.y > h.y + h.h) {
-                                                                    n = i.y + r
-                                                                } else {
-                                                                    n = h.y + h.h + r
-                                                                }
-                                                                A.push({
-                                                                    x: o,
-                                                                    y: g.y
-                                                                });
-                                                                A.push({
-                                                                    x: o,
-                                                                    y: n
-                                                                });
-                                                                A.push({
-                                                                    x: i.x,
-                                                                    y: n
-                                                                })
-                                                            }
-                                                        }
-                                                    }
-                                                } else {
-                                                    if ((c == 3 && b == 4) || (c == 4 && b == 3)) {
-                                                        if (c == 4) {
-                                                            g = w;
-                                                            i = d;
-                                                            l = false
-                                                        } else {
-                                                            g = d;
-                                                            i = w;
-                                                            l = true
-                                                        }
-                                                        var h = Model.getShapeById(g.id).props;
-                                                        var v = Model.getShapeById(i.id).props;
-                                                        var j = v.x + v.w;
-                                                        if (i.x < g.x && i.y < g.y) {
-                                                            A.push({
-                                                                x: i.x,
-                                                                y: g.y
-                                                            })
-                                                        } else {
-                                                            if (i.x < g.x && j < g.x) {
-                                                                var o;
-                                                                if (g.x - j < r * 2) {
-                                                                    o = j + (g.x - j) / 2
-                                                                } else {
-                                                                    o = g.x - r
-                                                                }
-                                                                var n = i.y + r;
-                                                                A.push({
-                                                                    x: o,
-                                                                    y: g.y
-                                                                });
-                                                                A.push({
-                                                                    x: o,
-                                                                    y: n
-                                                                });
-                                                                A.push({
-                                                                    x: i.x,
-                                                                    y: n
-                                                                })
-                                                            } else {
-                                                                if (i.x >= g.x && i.y < h.y) {
-                                                                    var o = g.x - r;
-                                                                    var n;
-                                                                    if (h.y - i.y < r * 2) {
-                                                                        n = i.y + (h.y - i.y) / 2
-                                                                    } else {
-                                                                        n = i.y + r
-                                                                    }
-                                                                    A.push({
-                                                                        x: o,
-                                                                        y: g.y
-                                                                    });
-                                                                    A.push({
-                                                                        x: o,
-                                                                        y: n
-                                                                    });
-                                                                    A.push({
-                                                                        x: i.x,
-                                                                        y: n
-                                                                    })
-                                                                } else {
-                                                                    var o;
-                                                                    if (v.x < g.x) {
-                                                                        o = v.x - r
-                                                                    } else {
-                                                                        o = g.x - r
-                                                                    }
-                                                                    var n;
-                                                                    if (i.y > h.y + h.h) {
-                                                                        n = i.y + r
-                                                                    } else {
-                                                                        n = h.y + h.h + r
-                                                                    }
-                                                                    A.push({
-                                                                        x: o,
-                                                                        y: g.y
-                                                                    });
-                                                                    A.push({
-                                                                        x: o,
-                                                                        y: n
-                                                                    });
-                                                                    A.push({
-                                                                        x: i.x,
-                                                                        y: n
-                                                                    })
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (l) {
-                    A.reverse()
-                }
-            } else {
-                if (w.id != null || d.id != null) {
-                    var g, i, l, B;
-                    if (w.id != null) {
-                        g = w;
-                        i = d;
-                        l = false;
-                        B = w.angle
-                    } else {
-                        g = d;
-                        i = w;
-                        l = true;
-                        B = d.angle
-                    }
-                    var e = Model.getShapeById(g.id).props;
-                    if (B >= C / 4 && B < C / 4 * 3) {
-                        if (i.y < g.y) {
-                            if (m >= D) {
-                                A.push({
-                                    x: g.x,
-                                    y: i.y
-                                })
-                            } else {
-                                var z = D / 2;
-                                A.push({
-                                    x: g.x,
-                                    y: g.y - z
-                                });
-                                A.push({
-                                    x: i.x,
-                                    y: g.y - z
-                                })
-                            }
-                        } else {
-                            A.push({
-                                x: g.x,
-                                y: g.y - r
-                            });
-                            if (m >= D) {
-                                if (i.x >= e.x - r && i.x <= e.x + e.w + r) {
-                                    var q = e.x + e.w / 2;
-                                    if (i.x < q) {
-                                        A.push({
-                                            x: e.x - r,
-                                            y: g.y - r
-                                        });
-                                        A.push({
-                                            x: e.x - r,
-                                            y: i.y
-                                        })
-                                    } else {
-                                        A.push({
-                                            x: e.x + e.w + r,
-                                            y: g.y - r
-                                        });
-                                        A.push({
-                                            x: e.x + e.w + r,
-                                            y: i.y
-                                        })
-                                    }
-                                } else {
-                                    if (i.x < e.x) {
-                                        A.push({
-                                            x: i.x + r,
-                                            y: g.y - r
-                                        });
-                                        A.push({
-                                            x: i.x + r,
-                                            y: i.y
-                                        })
-                                    } else {
-                                        A.push({
-                                            x: i.x - r,
-                                            y: g.y - r
-                                        });
-                                        A.push({
-                                            x: i.x - r,
-                                            y: i.y
-                                        })
-                                    }
-                                }
-                            } else {
-                                if (i.x >= e.x - r && i.x <= e.x + e.w + r) {
-                                    var q = e.x + e.w / 2;
-                                    if (i.x < q) {
-                                        A.push({
-                                            x: e.x - r,
-                                            y: g.y - r
-                                        });
-                                        A.push({
-                                            x: e.x - r,
-                                            y: i.y - r
-                                        });
-                                        A.push({
-                                            x: i.x,
-                                            y: i.y - r
-                                        })
-                                    } else {
-                                        A.push({
-                                            x: e.x + e.w + r,
-                                            y: g.y - r
-                                        });
-                                        A.push({
-                                            x: e.x + e.w + r,
-                                            y: i.y - r
-                                        });
-                                        A.push({
-                                            x: i.x,
-                                            y: i.y - r
-                                        })
-                                    }
-                                } else {
-                                    A.push({
-                                        x: i.x,
-                                        y: g.y - r
-                                    })
-                                }
-                            }
-                        }
-                    } else {
-                        if (B >= C / 4 * 3 && B < C / 4 * 5) {
-                            if (i.x > g.x) {
-                                if (m >= D) {
-                                    var z = m / 2;
-                                    A.push({
-                                        x: g.x + z,
-                                        y: g.y
-                                    });
-                                    A.push({
-                                        x: g.x + z,
-                                        y: i.y
-                                    })
-                                } else {
-                                    A.push({
-                                        x: i.x,
-                                        y: g.y
-                                    })
-                                }
-                            } else {
-                                A.push({
-                                    x: g.x + r,
-                                    y: g.y
-                                });
-                                if (m >= D) {
-                                    if (i.y >= e.y - r && i.y <= e.y + e.h + r) {
-                                        var q = e.y + e.h / 2;
-                                        if (i.y < q) {
-                                            A.push({
-                                                x: g.x + r,
-                                                y: e.y - r
-                                            });
-                                            A.push({
-                                                x: i.x + r,
-                                                y: e.y - r
-                                            });
-                                            A.push({
-                                                x: i.x + r,
-                                                y: i.y
-                                            })
-                                        } else {
-                                            A.push({
-                                                x: g.x + r,
-                                                y: e.y + e.h + r
-                                            });
-                                            A.push({
-                                                x: i.x + r,
-                                                y: e.y + e.h + r
-                                            });
-                                            A.push({
-                                                x: i.x + r,
-                                                y: i.y
-                                            })
-                                        }
-                                    } else {
-                                        A.push({
-                                            x: g.x + r,
-                                            y: i.y
-                                        })
-                                    }
-                                } else {
-                                    if (i.y >= e.y - r && i.y <= e.y + e.h + r) {
-                                        var q = e.y + e.h / 2;
-                                        if (i.y < q) {
-                                            A.push({
-                                                x: g.x + r,
-                                                y: e.y - r
-                                            });
-                                            A.push({
-                                                x: i.x,
-                                                y: e.y - r
-                                            })
-                                        } else {
-                                            A.push({
-                                                x: g.x + r,
-                                                y: e.y + e.h + r
-                                            });
-                                            A.push({
-                                                x: i.x,
-                                                y: e.y + e.h + r
-                                            })
-                                        }
-                                    } else {
-                                        if (i.y < g.y) {
-                                            A.push({
-                                                x: g.x + r,
-                                                y: i.y + r
-                                            });
-                                            A.push({
-                                                x: i.x,
-                                                y: i.y + r
-                                            })
-                                        } else {
-                                            A.push({
-                                                x: g.x + r,
-                                                y: i.y - r
-                                            });
-                                            A.push({
-                                                x: i.x,
-                                                y: i.y - r
-                                            })
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            if (B >= C / 4 * 5 && B < C / 4 * 7) {
-                                if (i.y > g.y) {
-                                    if (m >= D) {
-                                        A.push({
-                                            x: g.x,
-                                            y: i.y
-                                        })
-                                    } else {
-                                        var z = D / 2;
-                                        A.push({
-                                            x: g.x,
-                                            y: g.y + z
-                                        });
-                                        A.push({
-                                            x: i.x,
-                                            y: g.y + z
-                                        })
-                                    }
-                                } else {
-                                    A.push({
-                                        x: g.x,
-                                        y: g.y + r
-                                    });
-                                    if (m >= D) {
-                                        if (i.x >= e.x - r && i.x <= e.x + e.w + r) {
-                                            var q = e.x + e.w / 2;
-                                            if (i.x < q) {
-                                                A.push({
-                                                    x: e.x - r,
-                                                    y: g.y + r
-                                                });
-                                                A.push({
-                                                    x: e.x - r,
-                                                    y: i.y
-                                                })
-                                            } else {
-                                                A.push({
-                                                    x: e.x + e.w + r,
-                                                    y: g.y + r
-                                                });
-                                                A.push({
-                                                    x: e.x + e.w + r,
-                                                    y: i.y
-                                                })
-                                            }
-                                        } else {
-                                            if (i.x < e.x) {
-                                                A.push({
-                                                    x: i.x + r,
-                                                    y: g.y + r
-                                                });
-                                                A.push({
-                                                    x: i.x + r,
-                                                    y: i.y
-                                                })
-                                            } else {
-                                                A.push({
-                                                    x: i.x - r,
-                                                    y: g.y + r
-                                                });
-                                                A.push({
-                                                    x: i.x - r,
-                                                    y: i.y
-                                                })
-                                            }
-                                        }
-                                    } else {
-                                        if (i.x >= e.x - r && i.x <= e.x + e.w + r) {
-                                            var q = e.x + e.w / 2;
-                                            if (i.x < q) {
-                                                A.push({
-                                                    x: e.x - r,
-                                                    y: g.y + r
-                                                });
-                                                A.push({
-                                                    x: e.x - r,
-                                                    y: i.y + r
-                                                });
-                                                A.push({
-                                                    x: i.x,
-                                                    y: i.y + r
-                                                })
-                                            } else {
-                                                A.push({
-                                                    x: e.x + e.w + r,
-                                                    y: g.y + r
-                                                });
-                                                A.push({
-                                                    x: e.x + e.w + r,
-                                                    y: i.y + r
-                                                });
-                                                A.push({
-                                                    x: i.x,
-                                                    y: i.y + r
-                                                })
-                                            }
-                                        } else {
-                                            A.push({
-                                                x: i.x,
-                                                y: g.y + r
-                                            })
-                                        }
-                                    }
-                                }
-                            } else {
-                                if (i.x < g.x) {
-                                    if (m >= D) {
-                                        var z = m / 2;
-                                        A.push({
-                                            x: g.x - z,
-                                            y: g.y
-                                        });
-                                        A.push({
-                                            x: g.x - z,
-                                            y: i.y
-                                        })
-                                    } else {
-                                        A.push({
-                                            x: i.x,
-                                            y: g.y
-                                        })
-                                    }
-                                } else {
-                                    A.push({
-                                        x: g.x - r,
-                                        y: g.y
-                                    });
-                                    if (m >= D) {
-                                        if (i.y >= e.y - r && i.y <= e.y + e.h + r) {
-                                            var q = e.y + e.h / 2;
-                                            if (i.y < q) {
-                                                A.push({
-                                                    x: g.x - r,
-                                                    y: e.y - r
-                                                });
-                                                A.push({
-                                                    x: i.x - r,
-                                                    y: e.y - r
-                                                });
-                                                A.push({
-                                                    x: i.x - r,
-                                                    y: i.y
-                                                })
-                                            } else {
-                                                A.push({
-                                                    x: g.x - r,
-                                                    y: e.y + e.h + r
-                                                });
-                                                A.push({
-                                                    x: i.x - r,
-                                                    y: e.y + e.h + r
-                                                });
-                                                A.push({
-                                                    x: i.x - r,
-                                                    y: i.y
-                                                })
-                                            }
-                                        } else {
-                                            A.push({
-                                                x: g.x - r,
-                                                y: i.y
-                                            })
-                                        }
-                                    } else {
-                                        if (i.y >= e.y - r && i.y <= e.y + e.h + r) {
-                                            var q = e.y + e.h / 2;
-                                            if (i.y < q) {
-                                                A.push({
-                                                    x: g.x - r,
-                                                    y: e.y - r
-                                                });
-                                                A.push({
-                                                    x: i.x,
-                                                    y: e.y - r
-                                                })
-                                            } else {
-                                                A.push({
-                                                    x: g.x - r,
-                                                    y: e.y + e.h + r
-                                                });
-                                                A.push({
-                                                    x: i.x,
-                                                    y: e.y + e.h + r
-                                                })
-                                            }
-                                        } else {
-                                            if (i.y < g.y) {
-                                                A.push({
-                                                    x: g.x - r,
-                                                    y: i.y + r
-                                                });
-                                                A.push({
-                                                    x: i.x,
-                                                    y: i.y + r
-                                                })
-                                            } else {
-                                                A.push({
-                                                    x: g.x - r,
-                                                    y: i.y - r
-                                                });
-                                                A.push({
-                                                    x: i.x,
-                                                    y: i.y - r
-                                                })
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (l) {
-                        A.reverse()
-                    }
-                } else {
-                    if (m >= D) {
-                        var z = (d.x - w.x) / 2;
-                        A.push({
-                            x: w.x + z,
-                            y: w.y
-                        });
-                        A.push({
-                            x: w.x + z,
-                            y: d.y
-                        })
-                    } else {
-                        var z = (d.y - w.y) / 2;
-                        A.push({
-                            x: w.x,
-                            y: w.y + z
-                        });
-                        A.push({
-                            x: d.x,
-                            y: w.y + z
-                        })
-                    }
-                }
-            }
-        } else {
-            if (t.linkerType == "curve") {
-                var w = t.from;
-                var d = t.to;
-                var f = this.measureDistance(w, d);
-                var k = f * 0.4;
-                function s(E, F) {
-                    if (E.id != null) {
-                        return {
-                            x: E.x - k * Math.cos(E.angle),
-                            y: E.y - k * Math.sin(E.angle)
-                        }
-                    } else {
-                        var G = Math.abs(E.y - F.y);
-                        var y = Math.abs(E.x - F.x);
-                        var H = Math.atan(G / y);
-                        var x = {};
-                        if (E.x <= F.x) {
-                            x.x = E.x + k * Math.cos(H)
-                        } else {
-                            x.x = E.x - k * Math.cos(H)
-                        }
-                        if (E.y <= F.y) {
-                            x.y = E.y + k * Math.sin(H)
-                        } else {
-                            x.y = E.y - k * Math.sin(H)
-                        }
-                        return x
-                    }
-                }
-                A.push(s(w, d));
-                A.push(s(d, w))
-            }
-        }
-        return A
     },
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     getLinkerLinePoints: function(d) {
         var b = [];
         if (d.linkerType != "curve") {
@@ -10053,31 +8744,32 @@ var Utils = {
         }
         return a
     },
-    getOutlinkers: function(c) {
-        var a = [];
-        for (var e = 0; e < c.length; e++) {
-            var g = c[e];
-            a.push(g.id)
-        }
-        var h = [];
-        var d = [];
-        for (var e = 0; e < c.length; e++) {
-            var g = c[e];
-            if (g.name != "linker") {
-                var j = Model.getShapeLinkers(g.id);
-                if (j && j.length > 0) {
-                    for (var f = 0; f < j.length; f++) {
-                        var b = j[f];
-                        if (!this.isSelected(b) && d.indexOf(b) < 0 && a.indexOf(b) < 0) {
-                            h.push(Model.getShapeById(b));
-                            d.push(b)
-                        }
-                    }
-                }
-            }
-        }
-        return h
-    },
+
+    /**
+	 * 获取选中图形以外的连接线
+	 */
+	getOutlinkers: function(shapes){
+		var outlinkers = [];
+		var outlinkerIds = [];
+		for(var i = 0; i < shapes.length; i++){
+			var shape = shapes[i];
+			if(shape.name != "linker"){
+				//从linkerMap中取到形状上的连接线
+				var linkerIds = Model.getShapeLinkers(shape.id);
+				if(linkerIds && linkerIds.length > 0){
+					for(var index = 0; index < linkerIds.length; index++){
+						var id = linkerIds[index];
+						if(!this.isSelected(id) && outlinkerIds.indexOf(id) < 0){
+							//只获取未选中的
+							outlinkers.push(Model.getShapeById(id));
+							outlinkerIds.push(id);
+						}
+					}
+				}
+			}
+		}
+		return outlinkers;
+	},
     getFamilyShapes: function(a) {
         var g = [];
         for (var d = 0; d < a.length; d++) {

@@ -9,8 +9,8 @@
         "orientation": "portrait"
     },
     "elements": {
-        "165a498ea2a938": {
-            "id": "165a498ea2a938",
+        "16609b1698688f": {
+            "id": "16609b1698688f",
             "name": "rectangle",
             "title": "矩形",
             "category": "basic",
@@ -41,40 +41,40 @@
                     "type": "number",
                     "value": "",
                     "category": "default",
-                    "id": "165a498ea2a032"
+                    "id": "16609b169874fb"
                 },
                 {
                     "name": "名称",
                     "type": "string",
                     "value": "",
                     "category": "default",
-                    "id": "165a498ea2a562"
+                    "id": "16609b169872d1"
                 },
                 {
                     "name": "所有者",
                     "type": "string",
                     "value": "",
                     "category": "default",
-                    "id": "165a498ea2a9a3"
+                    "id": "16609b16987224"
                 },
                 {
                     "name": "连接",
                     "type": "link",
                     "value": "",
                     "category": "default",
-                    "id": "165a498ea2ab41"
+                    "id": "16609b1698774f"
                 },
                 {
                     "name": "便笺",
                     "type": "string",
                     "value": "",
                     "category": "default",
-                    "id": "165a498ea2ab0a"
+                    "id": "16609b169875c"
                 }
             ],
             "props": {
-                "x": 119,
-                "y": 154,
+                "x": 6,
+                "y": 33,
                 "w": 100,
                 "h": 70,
                 "zindex": 1,
@@ -145,16 +145,20 @@
                 }
             ]
         },
-        "165a49a18f3f07": {
-            "id": "165a49a18f3f07",
+        "16609b17248ee1": {
+            "id": "16609b17248ee1",
             "name": "linker",
             "text": "",
             "group": "",
             "linkerType": "broken",
             "points": [
                 {
-                    "x": 279,
-                    "y": 189
+                    "x": 143,
+                    "y": 68
+                },
+                {
+                    "x": 143,
+                    "y": 144
                 }
             ],
             "locked": false,
@@ -162,19 +166,170 @@
             "props": {
                 "zindex": 2
             },
-            "lineStyle": {},
+            "lineStyle": {
+                "lineWidth": 2,
+                "lineColor": "50,50,50",
+                "lineStyle": "solid",
+                "beginArrowStyle": "none",
+                "endArrowStyle": "solidArrow"
+            },
+            "fontStyle": {
+                "fontFamily": "微软雅黑",
+                "size": 13,
+                "color": "50,50,50",
+                "bold": false,
+                "italic": false,
+                "underline": false,
+                "textAlign": "center"
+            },
             "from": {
-                "x": 219,
-                "y": 189,
+                "x": 106,
+                "y": 68,
                 "angle": 3.141592653589793,
-                "id": "165a498ea2a938"
+                "id": "16609b1698688f"
             },
             "to": {
-                "id": null,
-                "x": 279,
-                "y": 329,
-                "angle": null
+                "id": "16609b1f9591ba",
+                "x": 180,
+                "y": 144,
+                "angle": 0
             }
+        },
+        "16609b1f9591ba": {
+            "id": "16609b1f9591ba",
+            "name": "rectangle",
+            "title": "矩形",
+            "category": "basic",
+            "group": "",
+            "groupName": null,
+            "locked": false,
+            "link": "",
+            "children": [],
+            "parent": "",
+            "resizeDir": [
+                "tl",
+                "tr",
+                "br",
+                "bl"
+            ],
+            "attribute": {
+                "container": false,
+                "visible": true,
+                "rotatable": true,
+                "linkable": true,
+                "collapsable": false,
+                "collapsed": false,
+                "markerOffset": 5
+            },
+            "dataAttributes": [
+                {
+                    "name": "序号",
+                    "type": "number",
+                    "value": "",
+                    "category": "default",
+                    "id": "16609b1f95ac97"
+                },
+                {
+                    "name": "名称",
+                    "type": "string",
+                    "value": "",
+                    "category": "default",
+                    "id": "16609b1f95ad27"
+                },
+                {
+                    "name": "所有者",
+                    "type": "string",
+                    "value": "",
+                    "category": "default",
+                    "id": "16609b1f95acf7"
+                },
+                {
+                    "name": "连接",
+                    "type": "link",
+                    "value": "",
+                    "category": "default",
+                    "id": "16609b1f95a585"
+                },
+                {
+                    "name": "便笺",
+                    "type": "string",
+                    "value": "",
+                    "category": "default",
+                    "id": "16609b1f95aac1"
+                }
+            ],
+            "props": {
+                "x": 180,
+                "y": 109,
+                "w": 100,
+                "h": 70,
+                "zindex": 3,
+                "angle": 0
+            },
+            "shapeStyle": {
+                "alpha": 1
+            },
+            "lineStyle": {},
+            "fillStyle": {},
+            "path": [
+                {
+                    "actions": [
+                        {
+                            "action": "move",
+                            "x": "0",
+                            "y": "0"
+                        },
+                        {
+                            "action": "line",
+                            "x": "w",
+                            "y": "0"
+                        },
+                        {
+                            "action": "line",
+                            "x": "w",
+                            "y": "h"
+                        },
+                        {
+                            "action": "line",
+                            "x": "0",
+                            "y": "h"
+                        },
+                        {
+                            "action": "close"
+                        }
+                    ]
+                }
+            ],
+            "fontStyle": {},
+            "textBlock": [
+                {
+                    "position": {
+                        "x": 10,
+                        "y": 0,
+                        "w": "w-20",
+                        "h": "h"
+                    },
+                    "text": ""
+                }
+            ],
+            "anchors": [
+                {
+                    "x": "w/2",
+                    "y": "0"
+                },
+                {
+                    "x": "w/2",
+                    "y": "h"
+                },
+                {
+                    "x": "0",
+                    "y": "h/2"
+                },
+                {
+                    "x": "w",
+                    "y": "h/2"
+                }
+            ]
         }
     }
 }
