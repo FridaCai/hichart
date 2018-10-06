@@ -1176,36 +1176,39 @@ var Designer = {
             this.state = null;
             $("#canvas_container").css("cursor", "default")
         },
-        shapeSelectable: function(a) {
-            var b = $("#designer_canvas");
-            b.bind("mousedown.select", function(d) {
-                Designer.op.changeState("seelcting_shapes");
-                var e = a.id;
-                var c = [];
-                if (d.ctrlKey) {
-                    var c = Utils.getSelectedIds();
-                    if (Utils.isSelected(e)) {
-                        Utils.removeFromArray(c, e)
-                    } else {
-                        c.push(e)
-                    }
-                    Utils.unselect();
-                    if (c.length > 0) {
-                        Utils.selectShape(c)
-                    }
-                } else {
-                    if (Utils.selectIds.indexOf(e) < 0) {
-                        Utils.unselect();
-                        Utils.selectShape(e)
-                    }
-                }
-                $(document).bind("mouseup.select", function() {
-                    Designer.op.resetState();
-                    b.unbind("mousedown.select");
-                    $(document).unbind("mouseup.select")
-                })
-            })
-        },
+        /**
+		 * 选中图形
+		 */
+		shapeSelectable: function(shape){
+			var canvas = $("#designer_canvas");
+			canvas.bind("mousedown.select", function(downE){
+				Designer.op.changeState("seelcting_shapes");
+				var shapeId = shape.id;
+				var selectIds = [];
+				if(downE.ctrlKey){
+					//如果按着ctrl，可以多选
+					var selectIds = Utils.getSelectedIds();
+					if(Utils.isSelected(shapeId)){
+						//如果选中了，取消选择
+						Utils.removeFromArray(selectIds, shapeId);
+					}else{
+						selectIds.push(shapeId);
+					}
+					Utils.unselect();
+					if(selectIds.length > 0){
+						Utils.selectShape(selectIds);
+					}
+				}else if(Utils.selectIds.indexOf(shapeId) < 0){
+					Utils.unselect();
+					Utils.selectShape(shapeId);
+				}
+				$(document).bind("mouseup.select", function(){
+					Designer.op.resetState();
+					canvas.unbind("mousedown.select");
+					$(document).unbind("mouseup.select");
+				});
+			});
+		},
         isMetaKey: false,
         /**
 		 * 形状拖动
@@ -1277,7 +1280,7 @@ var Designer = {
                 selected = selected.concat(outlinkers);
 
                 var selectedShape = selected;
-                console.log("Frida Test selectedShape", selectedShape)
+                // console.log("Frida Test selectedShape", selectedShape)
 
 
 
@@ -3070,7 +3073,7 @@ var Designer = {
 					var toChanged = false;
 					if(!Utils.isSelected(linker.id)){
 						if(from.id != null && ids.indexOf(from.id) >= 0){
-                            console.log('Frida Test3')
+                            // console.log('Frida Test3')
 							//当起点无连接，或者起点形状也被选中了
 							linker.from.x += restored.x;
 							linker.from.y += restored.y;
@@ -3107,7 +3110,7 @@ var Designer = {
 							top: oriPos.top += offset.y
 						});
 					}else if(fromChanged || toChanged){
-                        console.log('Frida Test4')
+                        // console.log('Frida Test4')
 						Designer.painter.renderLinker(linker, true);
 					}
 				}else{
@@ -3165,13 +3168,16 @@ var Designer = {
 			var newPos = null;
 			var linkedShape = null;
             var focus = Utils.getShapeByPosition(x, y, true);
+            console.log('Frida Test focus: ', focus);
             
 
 			Designer.op.hideLinkPoint();
 			if(focus != null){
 				var shape = focus.shape;
 				Utils.showAnchors(shape);
-				linkedShape = shape.id;
+                linkedShape = shape.id;
+                
+                //frida test. how to define focus.type?
 				if(focus.type == "bounding"){
 					newPos = focus.linkPoint;
 					Designer.op.showLinkPoint(Utils.toScale(newPos));
@@ -4926,7 +4932,6 @@ var Designer = {
                                         d = "http://localhost:8080" + d
                                     }
                                 } else {
-                                    console.log(b);
                                     d = "/file/id/" + b.fileId + "/diagram_user_image";
                                     if (localRuntime) {
                                         d = "http://localhost:8080" + d
@@ -5384,13 +5389,11 @@ var Designer = {
 		 */
 		renderLinker: function(linker, pointChanged){
             // console.log('Frida Test 3')
-            console.log('before change linker.points', JSON.stringify(linker.points));
             
 
 			if(pointChanged){
 				//如果渲染时，连接线的点发成了改变，重新查找
                 linker.points = Utils.getLinkerPoints(linker);
-                console.log('after change linker.points', JSON.stringify(linker.points));
             }
             
 
@@ -6390,348 +6393,270 @@ var Utils = {
         var a = (b + new Date().getTime());
         return a.toString(16).replace(".", "")
     },
-    getShapeByPosition: function(M, L, G) {
-        var m = [];
-        for (var U = Model.orderList.length - 1; U >= 0; U--) {
-            var P = Model.orderList[U].id;
-            var V = $("#" + P);
-            var s = Model.getShapeById(P);
-            if (s.attribute && s.attribute.collapseBy) {
-                continue
-            }
-            var u = V.position();
-            var F = M - u.left;
-            var E = L - u.top;
-            var Q = {
-                x: u.left,
-                y: u.top,
-                w: V.width(),
-                h: V.height()
-            };
-            var S = V.find(".shape_canvas")[0];
-            var k = S.getContext("2d");
-            var c = this.pointInRect(M, L, Q);
-            if (s.name == "linker") {
-                if (!c) {
-                    continue
-                }
-                if (G) {
-                    continue
-                }
-                var N = 10;
-                N = N.toScale();
-                var D = {
-                    x: M - N,
-                    y: L - N,
-                    w: N * 2,
-                    h: N * 2
-                };
-                if (this.pointInRect(s.to.x.toScale(), s.to.y.toScale(), D)) {
-                    var t = {
-                        type: "linker_point",
-                        point: "end",
-                        shape: s
-                    };
-                    m.push(t);
-                    continue
-                } else {
-                    if (this.pointInRect(s.from.x.toScale(), s.from.y.toScale(), D)) {
-                        var t = {
-                            type: "linker_point",
-                            point: "from",
-                            shape: s
-                        };
-                        m.push(t);
-                        continue
-                    } else {
-                        var v = V.find(".text_canvas");
-                        var A = v.position();
-                        var D = {
-                            x: A.left,
-                            y: A.top,
-                            w: v.width(),
-                            h: v.height()
-                        };
-                        if (this.pointInRect(F, E, D)) {
-                            var t = {
-                                type: "linker_text",
-                                shape: s
-                            };
-                            m.push(t);
-                            continue
-                        }
-                        N = 7;
-                        N = N.toScale();
-                        var B = this.pointInLinker({
-                            x: M.restoreScale(),
-                            y: L.restoreScale()
-                        }, s, N);
-                        if (B > -1) {
-                            var t = {
-                                type: "linker",
-                                shape: s,
-                                pointIndex: B
-                            };
-                            m.push(t);
-                            continue
-                        }
-                    }
-                }
-            } else {
-                if (c && s.locked && !G) {
-                    if (k.isPointInPath(F, E)) {
-                        var t = {
-                            type: "shape",
-                            shape: s
-                        };
-                        m.push(t)
-                    }
-                    continue
-                }
-                var N = 7;
-                if (c) {
-                    N = N.toScale();
-                    var D = {
-                        x: M - N,
-                        y: L - N,
-                        w: N * 2,
-                        h: N * 2
-                    };
-                    var I = {
-                        x: s.props.x + s.props.w / 2,
-                        y: s.props.y + s.props.h / 2
-                    };
-                    var q = s.getAnchors();
-                    var t = null;
-                    for (var h = 0; h < q.length; h++) {
-                        var f = q[h];
-                        f = this.getRotated(I, {
-                            x: s.props.x + f.x,
-                            y: s.props.y + f.y
-                        }, s.props.angle);
-                        if (Utils.pointInRect(f.x.toScale(), f.y.toScale(), D)) {
-                            var r = Utils.getPointAngle(P, f.x, f.y, N);
-                            f.angle = r;
-                            t = {
-                                type: "bounding",
-                                shape: s,
-                                linkPoint: f
-                            };
-                            if (k.isPointInPath(F, E)) {
-                                t.inPath = true
-                            }
-                            break
-                        }
-                    }
-                    if (t != null) {
-                        m.push(t);
-                        continue
-                    }
-                }
-                if (s.dataAttributes) {
-                    var t = null;
-                    for (var l = 0; l < s.dataAttributes.length; l++) {
-                        var p = s.dataAttributes[l];
-                        if (p.type == "link" && p.showType && p.showType != "none") {
-                            var C = V.children("#attr_canvas_" + p.id);
-                            if (C.length > 0) {
-                                var w = C.position();
-                                var K = F - w.left;
-                                var J = E - w.top;
-                                var n = C[0].getContext("2d");
-                                if (n.isPointInPath(K, J)) {
-                                    t = {
-                                        type: "dataAttribute",
-                                        shape: s,
-                                        attribute: p
-                                    };
-                                    break
-                                }
-                            }
-                        }
-                    }
-                    if (t != null) {
-                        m.push(t);
-                        continue
-                    }
-                }
-                if (!c) {
-                    continue
-                }
-                if (k.isPointInPath(F, E)) {
-                    if (G) {
-                        var q = s.getAnchors();
-                        if (q && q.length) {
-                            var z = false;
-                            for (var T = U + 1; T < Model.orderList.length; T++) {
-                                var a = Model.orderList[T].id;
-                                var R = Model.getShapeById(a);
-                                if (Utils.rectInRect(R.props, s.props)) {
-                                    z = true;
-                                    continue
-                                }
-                            }
-                            if (z) {
-                                continue
-                            }
-                            var t = {
-                                type: "shape",
-                                shape: s
-                            };
-                            m.push(t);
-                            continue
-                        } else {
-                            continue
-                        }
-                    } else {
-                        var t = {
-                            type: "shape",
-                            shape: s
-                        };
-                        m.push(t);
-                        continue
-                    }
-                } else {
-                    if (!s.attribute || typeof s.attribute.linkable == "undefined" || s.attribute.linkable) {
-                        var r = Utils.getPointAngle(P, M.restoreScale(), L.restoreScale(), N);
-                        if (r != null) {
-                            var t = null;
-                            var b = {
-                                angle: r
-                            };
-                            for (var H = 1; H <= N; H++) {
-                                if (r == 0) {
-                                    b.x = F + H;
-                                    b.y = E
-                                } else {
-                                    if (r < Math.PI / 2) {
-                                        b.x = F + H * Math.cos(r);
-                                        b.y = E + H * Math.sin(r)
-                                    } else {
-                                        if (r == Math.PI / 2) {
-                                            b.x = F;
-                                            b.y = E + H
-                                        } else {
-                                            if (r < Math.PI) {
-                                                b.x = F - H * Math.sin(r - Math.PI / 2);
-                                                b.y = E + H * Math.cos(r - Math.PI / 2)
-                                            } else {
-                                                if (r == Math.PI) {
-                                                    b.x = F - H;
-                                                    b.y = E
-                                                } else {
-                                                    if (r < Math.PI / 2 * 3) {
-                                                        b.x = F - H * Math.cos(r - Math.PI);
-                                                        b.y = E - H * Math.sin(r - Math.PI)
-                                                    } else {
-                                                        if (r == Math.PI / 2 * 3) {
-                                                            b.x = F;
-                                                            b.y = E - H
-                                                        } else {
-                                                            b.x = F + H * Math.sin(r - Math.PI / 2 * 3);
-                                                            b.y = E - H * Math.cos(r - Math.PI / 2 * 3)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                if (k.isPointInPath(b.x, b.y)) {
-                                    b.x += u.left;
-                                    b.y += u.top;
-                                    b.x = b.x.restoreScale();
-                                    b.y = b.y.restoreScale();
-                                    t = {
-                                        type: "bounding",
-                                        shape: s,
-                                        linkPoint: b
-                                    };
-                                    break
-                                }
-                            }
-                            if (t != null) {
-                                m.push(t);
-                                continue
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        var t = null;
-        if (m.length == 1) {
-            t = m[0]
-        }
-        if (m.length > 1 && G) {
-            t = m[0]
-        } else {
-            if (m.length > 1) {
-                var g = m[0];
-                if (g.type == "bounding" && g.type != "linker_point" && g.type != "linker") {
-                    return g
-                }
-                var B = [];
-                var d = [];
-                var o = [];
-                for (var U = 0; U < m.length; U++) {
-                    var O = m[U];
-                    if (O.type == "bounding") {
-                        o.push(O)
-                    } else {
-                        if (O.type == "linker") {
-                            B.push(O)
-                        } else {
-                            if (O.type == "linker_point") {
-                                d.push(O)
-                            }
-                        }
-                    }
-                }
-                if (o.length > 0 && d.length > 0) {
-                    for (var U = 0; U < o.length; U++) {
-                        var O = o[U];
-                        if (O.inPath) {
-                            t = O;
-                            break
-                        }
-                    }
-                }
-                if (t == null && d.length > 0) {
-                    d.sort(function e(j, i) {
-                        if (Utils.isSelected(j.shape.id) && !Utils.isSelected(i.shape.id)) {
-                            return -1
-                        } else {
-                            if (!Utils.isSelected(j.shape.id) && Utils.isSelected(i.shape.id)) {
-                                return 1
-                            } else {
-                                return i.shape.props.zindex - j.shape.props.zindex
-                            }
-                        }
-                    });
-                    t = d[0]
-                }
-                if (t == null && B.length > 0) {
-                    B.sort(function e(j, i) {
-                        if (Utils.isSelected(j.shape.id) && !Utils.isSelected(i.shape.id)) {
-                            return -1
-                        } else {
-                            if (!Utils.isSelected(j.shape.id) && Utils.isSelected(i.shape.id)) {
-                                return 1
-                            } else {
-                                return i.shape.props.zindex - j.shape.props.zindex
-                            }
-                        }
-                    });
-                    t = B[0]
-                }
-                if (t == null) {
-                    t = m[0]
-                }
-            }
-        }
-        return t
+    /**
+	 * 获取某一位置下的形状容器
+	 */
+	getShapeByPosition: function(x, y, findLinkpoint){
+		var focusShapes = [];
+		for(var i = Model.orderList.length - 1; i >= 0; i--){
+			var shapeId = Model.orderList[i].id;
+			var shapeBox = $("#" + shapeId);
+			var shape = Model.getShapeById(shapeId);
+			//计算出相对于图形画布的x,y坐标
+			var shapeBoxPos = shapeBox.position();
+			var relativeX = x - shapeBoxPos.left;
+			var relativeY = y - shapeBoxPos.top;
+			var canvasRect = {x: shapeBoxPos.left, y: shapeBoxPos.top, w: shapeBox.width(), h: shapeBox.height()};
+			var shapeCanvas = shapeBox.find(".shape_canvas")[0];
+			var shapeCtx = shapeCanvas.getContext("2d");
+			var inCanvas = this.pointInRect(x, y, canvasRect);
+			if(shape.name == "linker"){
+				if(!inCanvas){
+					continue;
+				}
+				if(findLinkpoint){
+					continue;
+				}
+				//如果图形是连接线
+				//先判断是否在连线的端点上
+				var radius = 10;
+				radius = radius.toScale();
+				var rect = {x: x - radius, y: y - radius, w: radius * 2, h: radius * 2};
+				if(this.pointInRect(shape.to.x.toScale(), shape.to.y.toScale(), rect)){
+					var result = {type: "linker_point", point: "end", shape: shape};
+					focusShapes.push(result);
+					continue;
+				}else if(this.pointInRect(shape.from.x.toScale(), shape.from.y.toScale(), rect)){
+					var result = {type: "linker_point", point: "from", shape: shape};
+					focusShapes.push(result);
+					continue;
+				}else{
+					//判断是否在连接线的文本上
+					var textCanvas = shapeBox.find(".text_canvas");
+					var textCanvasPos = textCanvas.position();
+					var rect = {x: textCanvasPos.left, y: textCanvasPos.top, w: textCanvas.width(), h: textCanvas.height()};
+					if(this.pointInRect(relativeX, relativeY, rect)){
+						var result = {type: "linker_text", shape: shape};
+						focusShapes.push(result);
+						continue;
+					}
+					//判断是否在连接线上，判断坐标点放射出的两条直线是否与线相交
+					radius = 7;
+					radius = radius.toScale();
+					var inLinker = this.pointInLinker({x: x.restoreScale(), y: y.restoreScale()}, shape, radius);
+					if(inLinker > -1){
+						var result = {type: "linker", shape: shape, pointIndex: inLinker};
+						focusShapes.push(result);
+						continue;
+					}
+				}
+			}else{
+				if(inCanvas && shape.locked && !findLinkpoint){
+					//如果图形被锁定了，不做边界判断
+					if(shapeCtx.isPointInPath(relativeX, relativeY)){
+						var result = {type: "shape", shape: shape};
+						focusShapes.push(result);
+					}
+					continue;
+				}
+				var radius = 7; //矩形放射半径
+				if(inCanvas){
+					//先判断是否在图形的锚点上
+					radius = radius.toScale();
+					var rect = {x: x - radius, y: y - radius, w: radius * 2, h: radius * 2};
+					var shapeCenter = {x: shape.props.x + shape.props.w/2, y: shape.props.y + shape.props.h/2};
+					var anchors = shape.getAnchors();
+					var result = null;
+					for ( var ai = 0; ai < anchors.length; ai++) {
+						var an = anchors[ai];
+						an = this.getRotated(shapeCenter, {x: shape.props.x + an.x, y: shape.props.y + an.y}, shape.props.angle);
+						//所以在判断锚点是否在鼠标矩形范围中时
+						if(Utils.pointInRect(an.x.toScale(), an.y.toScale(), rect)){
+							var angle = Utils.getPointAngle(shapeId, an.x, an.y, radius);
+							an.angle = angle;
+							result = {type: "bounding", shape: shape, linkPoint: an};
+							if(shapeCtx.isPointInPath(relativeX, relativeY)){
+								result.inPath = true;
+							}
+							break;
+						}
+					}
+					if(result != null){
+						focusShapes.push(result);
+						continue;
+					}
+				}
+				//判断是否在数据属性上
+				if(shape.dataAttributes){
+					var result = null;
+					for (var di = 0; di < shape.dataAttributes.length; di++) {
+						var attr = shape.dataAttributes[di];
+						if(attr.type == "link" && attr.showType && attr.showType != "none"){
+							var attrCanvas = shapeBox.children("#attr_canvas_" + attr.id);
+							if(attrCanvas.length > 0){
+								var attrPos = attrCanvas.position();
+								var relateToAttrX = relativeX - attrPos.left;
+								var relateToAttrY = relativeY - attrPos.top;
+								var attrCtx = attrCanvas[0].getContext("2d");
+								if(attrCtx.isPointInPath(relateToAttrX, relateToAttrY)){
+									result = {type: "dataAttribute", shape: shape, attribute: attr};
+									break;
+								}
+							}
+						}
+					}
+					if(result != null){
+						focusShapes.push(result);
+						continue;
+					}
+				}
+				if(!inCanvas){
+					continue;
+				}
+				//判断是否在图形内
+				if(shapeCtx.isPointInPath(relativeX, relativeY)){
+					//如果当前坐标在形状内，显示为移动
+					if(findLinkpoint){
+						var anchors = shape.getAnchors();
+						if(anchors && anchors.length){
+							var result = {type: "shape", shape: shape};
+							focusShapes.push(result);
+							continue;
+						}else{
+							continue;
+						}
+					}else{
+						var result = {type: "shape", shape: shape};
+						focusShapes.push(result);
+						continue;
+					}
+				}else if(!shape.attribute || typeof shape.attribute.linkable == "undefined" || shape.attribute.linkable){
+					//判断坐标是否在图形边界上
+					//获取点相对于图形的角度
+					var angle = Utils.getPointAngle(shapeId, x.restoreScale(), y.restoreScale(), radius);
+					if(angle != null){
+						var result = null;
+						var linkPoint = {angle: angle};
+						for(var step = 1; step <= radius; step++){
+							//向角度相反方向，以半径为最长，逐渐移动
+							if(angle == 0){
+								//点角度在左边
+								linkPoint.x = relativeX + step;
+								linkPoint.y = relativeY;
+							}else if(angle < Math.PI / 2){
+								//点角度在左上角区域
+								linkPoint.x = relativeX + step * Math.cos(angle);
+								linkPoint.y = relativeY + step * Math.sin(angle);
+							}else if(angle == Math.PI / 2){
+								//点角度在正上方
+								linkPoint.x = relativeX;
+								linkPoint.y = relativeY + step;
+							}else if(angle < Math.PI){
+								//点角度为在右上角区域
+								linkPoint.x = relativeX - step * Math.sin(angle - Math.PI / 2);
+								linkPoint.y = relativeY + step * Math.cos(angle - Math.PI / 2);
+							}else if(angle == Math.PI / 2){
+								//点角度在正右边
+								linkPoint.x = relativeX - step;
+								linkPoint.y = relativeY;
+							}else if(angle < Math.PI / 2 * 3){
+								//点角度为在右下角区域
+								linkPoint.x = relativeX - step * Math.cos(angle - Math.PI);
+								linkPoint.y = relativeY - step * Math.sin(angle - Math.PI);
+							}else if(angle == Math.PI / 2 * 3){
+								//点角度在正右边
+								linkPoint.x = relativeX;
+								linkPoint.y = relativeY - step;
+							}else{
+								//点角度为在左下角区域
+								linkPoint.x = relativeX + step * Math.sin(angle - Math.PI / 2 * 3);
+								linkPoint.y = relativeY - step * Math.cos(angle - Math.PI / 2 * 3);
+							}
+							if(shapeCtx.isPointInPath(linkPoint.x, linkPoint.y)){
+								linkPoint.x += shapeBoxPos.left;
+								linkPoint.y += shapeBoxPos.top;
+								linkPoint.x = linkPoint.x.restoreScale();
+								linkPoint.y = linkPoint.y.restoreScale();
+								result = {type: "bounding", shape: shape, linkPoint: linkPoint};
+								break;
+							}
+						}
+						if(result != null){
+							focusShapes.push(result);
+							continue;
+						}
+					}
+				}
+			}
+		}
+		var result = null;
+		if(focusShapes.length == 1){
+			result = focusShapes[0];
+		}if(focusShapes.length > 1 && findLinkpoint){
+			result = focusShapes[0];
+		}else if(focusShapes.length > 1){
+			//鼠标在多个图形上，需要有判断规则
+			var first = focusShapes[0];
+			if(first.type == "bounding" && first.type != "linker_point" && first.type != "linker"){
+				//鼠标在连接线端点上，并且
+				return first;
+			}
+			var inLinker = []; //在连线上
+			var endPoint = []; //在连接线端点
+			var inBounding = []; //在形状边界上
+			for(var i = 0; i < focusShapes.length; i++){
+				var focus = focusShapes[i];
+				if(focus.type == "bounding"){
+					inBounding.push(focus);				
+				}else if(focus.type == "linker"){
+					inLinker.push(focus);				
+				}else if(focus.type == "linker_point"){
+					endPoint.push(focus);				
+				}
+			}
+			if(inBounding.length > 0 && endPoint.length > 0){
+				//在某图形的边界上，并且在某连接线的端点上，判断一下是否在形状内部
+				for(var i = 0; i < inBounding.length; i++){
+					var focus = inBounding[i];
+					if(focus.inPath){
+						result = focus;
+						break;
+					}
+				}
+			}
+			if(result == null && endPoint.length > 0){
+				//如果并没有在形状内部，取最上层的连接线
+				endPoint.sort(function compare(a, b){
+					if(Utils.isSelected(a.shape.id) && !Utils.isSelected(b.shape.id)){
+						return -1;
+					}else if(!Utils.isSelected(a.shape.id) && Utils.isSelected(b.shape.id)){
+						return 1;
+					}else{
+						return b.shape.props.zindex - a.shape.props.zindex;
+					}
+			 	});
+				result = endPoint[0];
+			}
+			if(result == null && inLinker.length > 0){
+				//如果并没有在形状内部，取最上层的连接线
+				inLinker.sort(function compare(a, b){
+					if(Utils.isSelected(a.shape.id) && !Utils.isSelected(b.shape.id)){
+						return -1;
+					}else if(!Utils.isSelected(a.shape.id) && Utils.isSelected(b.shape.id)){
+						return 1;
+					}else{
+						return b.shape.props.zindex - a.shape.props.zindex;
+					}
+			 	});
+				result = inLinker[0];
+			}
+			if(result == null){
+				result = focusShapes[0];
+			}
+		}
+		return result;
     },
+    
     checkCross: function(i, g, f, e) {
         var a = false;
         var h = (g.x - i.x) * (e.y - f.y) - (g.y - i.y) * (e.x - f.x);
@@ -6947,82 +6872,87 @@ var Utils = {
         return a.getElementsByTagName("canvas")[0].getContext("2d")
     },
     selectIds: [],
-    selectShape: function(h, d) {
-        if (typeof h == "string") {
-            var m = h;
-            h = [];
-            h.push(m)
-        }
-        if (h.length <= 0) {
-            return
-        }
-        var j = [];
-        for (var f = 0; f < h.length; f++) {
-            var b = h[f];
-            var l = Model.getShapeById(b);
-            if (l.attribute && l.attribute.collapseBy) {
-                continue
-            }
-            j.push(b);
-            if (l.group) {
-                var c = Model.getGroupShapes(l.group);
-                Utils.mergeArray(j, c)
-            }
-        }
-        var a = [];
-        for (var f = 0; f < j.length; f++) {
-            var b = j[f];
-            var l = Model.getShapeById(b);
-            if (l.parent && l.resizeDir.length == 0 && a.indexOf(l.parent) < 0) {
-                a.push(l.parent)
-            } else {
-                if (a.indexOf(b) < 0) {
-                    a.push(b)
-                }
-            }
-        }
-        h = a;
-        Utils.removeAnchors();
-        Utils.selectIds = [];
-        for (var k = 0; k < h.length; k++) {
-            var m = h[k];
-            var l = Model.getShapeById(m);
-            Utils.selectIds.push(m);
-            if (l.name == "linker") {
-                if (this.isLocked(l.id)) {
-                    Utils.showLockers(l)
-                } else {
-                    Designer.painter.renderLinker(l)
-                }
-            } else {
-                if (this.isLocked(l.id)) {
-                    Utils.showLockers(l)
-                } else {
-                    Utils.showAnchors(l)
-                }
-            }
-        }
-        var a = Utils.getSelectedIds();
-        var n = false;
-        if (a.length == 1) {
-            var g = Model.getShapeById(a[0]);
-            if (g.name == "linker") {
-                n = true;
-                Utils.showLinkerControls()
-            }
-        }
-        if (a.length > 0 && !n) {
-            var e = Designer.painter.drawControls(a)
-        }
-        if (typeof d == "undefined") {
-            d = true
-        }
-        if (this.selectCallback && d) {
-            this.selectCallback()
-        }
-        Designer.events.push("selectChanged");
-        this.showLinkerCursor()
-    },
+    /**
+	 * 选中形状
+	 * @param {} shapeIds 选中图形的id
+	 * @param {} withCallback 是否施行回调
+	 */
+	selectShape: function(shapeIds, withCallback){
+		//如果是字符串，则为选择一个
+		if(typeof shapeIds == "string"){
+			var shapeId = shapeIds;
+			shapeIds = [];
+			shapeIds.push(shapeId);
+		}
+		if(shapeIds.length <= 0){
+			return;
+		}
+		var selectIds = Utils.mergeArray([], shapeIds); //构建一个新的数组
+		//先进行循环，找到与图形组合的图形，一并选中
+		for (var i = 0; i < shapeIds.length; i++) {
+			var shape = Model.getShapeById(shapeIds[i]);
+			if(shape.group){
+				var groupedShapeIds = Model.getGroupShapes(shape.group);
+				Utils.mergeArray(selectIds, groupedShapeIds);
+			}
+		}
+		//重新构建一下，如果子元素不允许缩放，选中子元素时，让其选中父元素
+		var ids = [];
+		for (var i = 0; i < selectIds.length; i++) {
+			var id = selectIds[i];
+			var shape = Model.getShapeById(id);
+			if(shape.parent && shape.resizeDir.length == 0 && ids.indexOf(shape.parent) < 0){
+				ids.push(shape.parent);
+			}else if(ids.indexOf(id) < 0){
+				ids.push(id);
+			}
+		}
+		shapeIds = ids;
+		Utils.removeAnchors();
+		Utils.selectIds = [];
+		//设置选中状态
+		for (var index = 0; index < shapeIds.length; index++) {
+			var shapeId = shapeIds[index];
+			var shape = Model.getShapeById(shapeId);
+			Utils.selectIds.push(shapeId);
+			if(shape.name == "linker"){
+				if(this.isLocked(shape.id)){
+					//锁定，显示叉号
+					Utils.showLockers(shape);
+				}else{
+					Designer.painter.renderLinker(shape);
+				}
+			}else{
+				if(this.isLocked(shape.id)){
+					//锁定，显示叉号
+					Utils.showLockers(shape);
+				}else{
+					Utils.showAnchors(shape);
+				}
+			}
+		}
+		//拿到选中的图形，不包括锁定的，给这些图形绘制控制器
+		var ids = Utils.getSelectedIds();
+		var onlyOneLinker = false
+		if(ids.length == 1){
+			var first = Model.getShapeById(ids[0]);
+			if(first.name == "linker"){
+				onlyOneLinker = true;
+				Utils.showLinkerControls();
+			}
+		}
+		if(ids.length > 0 && !onlyOneLinker){
+			var control = Designer.painter.drawControls(ids);
+		}
+		if(typeof withCallback == "undefined"){
+			withCallback = true
+		}
+		if(this.selectCallback && withCallback){
+			this.selectCallback();
+		}
+		Designer.events.push("selectChanged");
+		this.showLinkerCursor();
+	},
     selectCallback: null,
     unselect: function() {
         var c = this.selectIds;
@@ -7558,22 +7488,18 @@ var Utils = {
         var e = (d + s) % (Math.PI * 2);
         return e
     },
-    getAngleDir: function(b) {
-        var a = Math.PI;
-        if (b >= a / 4 && b < a / 4 * 3) {
-            return 1
-        } else {
-            if (b >= a / 4 * 3 && b < a / 4 * 5) {
-                return 2
-            } else {
-                if (b >= a / 4 * 5 && b < a / 4 * 7) {
-                    return 3
-                } else {
-                    return 4
-                }
-            }
-        }
-    },
+    getAngleDir: function(angle){
+		var pi = Math.PI;
+		if(angle >= pi / 4 && angle < pi / 4 * 3){
+			return 1;//上
+		}else if(angle >= pi / 4 * 3 && angle < pi / 4 * 5){
+			return 2;//右
+		}else if(angle >= pi / 4 * 5 && angle < pi / 4 * 7){
+			return 3;//下
+		}else{
+			return 4;//左
+		}
+	},
 
 
 
@@ -7611,7 +7537,7 @@ var Utils = {
 			if(from.id != null && to.id != null){
 				//起点和终点都连接了形状
 				var fromDir = this.getAngleDir(from.angle); //起点方向
-				var toDir = this.getAngleDir(to.angle); //终点方向
+                var toDir = this.getAngleDir(to.angle); //终点方向
 				var fixed, active, reverse; //固定点、移动点、是否需要逆序
 				//以起点为判断依据，可以涵盖所有情况
 				if(fromDir == 1 && toDir == 1){
@@ -8092,7 +8018,7 @@ var Utils = {
                 
 
 
-                console.log('angle', angle)
+                // console.log('angle', angle)
                 var props = Model.getShapeById(fixed.id).props;
                 
 
