@@ -1053,90 +1053,76 @@ var Designer = {
         })
     },
     op: {
-        init: function() {
-            var b = $("#designer_canvas");
-            var a = $("#canvas_container");
-            a.unbind("mousemove.operate").bind("mousemove.operate", function(g) {
-                // console.log('Frida Test');
-                if (Designer.op.state != null) {
-                    return
-                }
-                Designer.op.destroy();
-                var f = Utils.getRelativePos(g.pageX, g.pageY, b);
-                var c = Utils.getShapeByPosition(f.x, f.y);
-                if (c != null) {
-                    if (c.type == "dataAttribute") {
-                        Designer.op.linkClickable(c.attribute.value, f)
-                    } else {
-                        if (c.type == "linker") {
-                            a.css("cursor", "pointer");
-                            Designer.op.shapeSelectable(c.shape);
-                            var e = c.shape;
-                            var d = c.pointIndex;
-                            if (e.linkerType == "broken" && d > 1 && d <= e.points.length) {
-                                Designer.op.brokenLinkerChangable(e, d - 1)
-                            } else {
-                                if (e.from.id == null && e.to.id == null) {
-                                    a.css("cursor", "move");
-                                    Designer.op.shapeDraggable()
-                                }
-                            }
-                            Designer.op.linkerEditable(e)
-                        } else {
-                            if (c.type == "linker_point") {
-                                a.css("cursor", "move");
-                                Designer.op.shapeSelectable(c.shape);
-                                Designer.op.linkerDraggable(c.shape, c.point);
-                                Designer.op.linkerEditable(c.shape)
-                            } else {
-                                if (c.type == "linker_text") {
-                                    a.css("cursor", "text");
-                                    Designer.op.shapeSelectable(c.shape);
-                                    Designer.op.linkerEditable(c.shape)
-                                } else {
-                                    if (c.type == "shape") {
-                                        if (c.shape.locked) {
-                                            a.css("cursor", "default");
-                                            Designer.op.shapeSelectable(c.shape)
-                                        } else {
-                                            a.css("cursor", "move");
-                                            Designer.op.shapeSelectable(c.shape);
-                                            Designer.op.shapeEditable(c.shape);
-
-
-
-
-                                            // console.log('Frida Test2');
-                                            Designer.op.shapeDraggable();
-
-
-
-
-                                            if (c.shape.link) {
-                                                Designer.op.linkClickable(c.shape.link, f)
-                                            }
-                                        }
-                                    } else {
-                                        a.css("cursor", "crosshair");
-                                        Designer.op.shapeSelectable(c.shape);
-                                        Designer.op.shapeLinkable(c.shape, c.linkPoint)
-                                    }
-                                    if (c.shape.parent) {
-                                        Utils.showAnchors(Model.getShapeById(c.shape.parent))
-                                    } else {
-                                        Utils.showAnchors(c.shape)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    a.css("cursor", "default");
-                    Designer.op.shapeMultiSelectable()
-                }
-            });
-            $(document).on("paste", function(c) {})
-        },
+        init: function(){
+			var canvas = $("#designer_canvas");
+			var container = $("#canvas_container");
+			//绑定在画布上鼠标移动时，显示移动、连线，还是框选
+			container.unbind("mousemove.operate").bind("mousemove.operate", function(hoverEvent){
+				if(Designer.op.state != null){
+					return;
+				}
+				//鼠标移动一下，就重新初始化鼠标操作
+				Designer.op.destroy();
+				var relativePos = Utils.getRelativePos(hoverEvent.pageX, hoverEvent.pageY, canvas);
+				var focus = Utils.getShapeByPosition(relativePos.x, relativePos.y);
+				if(focus != null){
+					if(focus.type == "dataAttribute"){
+						Designer.op.linkClickable(focus.attribute.value, relativePos);
+					}else if(focus.type == "linker"){
+						container.css("cursor", "pointer");
+						Designer.op.shapeSelectable(focus.shape);
+						var linker = focus.shape;
+						var index = focus.pointIndex; //鼠标在第几个拐点之间，由此来判断是否可重置折线
+						if(linker.linkerType == "broken" && index > 1 && index <= linker.points.length){
+							//在折线拐线上，可以拖动
+							Designer.op.brokenLinkerChangable(linker, index - 1);
+						}else if(linker.from.id == null && linker.to.id == null){
+							container.css("cursor", "move");
+							Designer.op.shapeDraggable();
+						}
+						Designer.op.linkerEditable(linker);
+					}else if(focus.type == "linker_point"){
+						container.css("cursor", "move");
+						Designer.op.shapeSelectable(focus.shape);
+						Designer.op.linkerDraggable(focus.shape, focus.point);
+						Designer.op.linkerEditable(focus.shape);
+					}else if(focus.type == "linker_text"){
+						container.css("cursor", "text");
+						Designer.op.shapeSelectable(focus.shape);
+						Designer.op.linkerEditable(focus.shape);
+					}else{
+						if(focus.type == "shape"){
+							if(focus.shape.locked){
+								container.css("cursor", "default");
+								Designer.op.shapeSelectable(focus.shape);
+							}else{
+								container.css("cursor", "move");
+								Designer.op.shapeSelectable(focus.shape);
+								Designer.op.shapeEditable(focus.shape);
+								Designer.op.shapeDraggable();
+								if(focus.shape.link){
+									Designer.op.linkClickable(focus.shape.link, relativePos);
+								}
+							}
+						}else{
+							//在边界上，可连线 
+							container.css("cursor", "crosshair");
+							Designer.op.shapeSelectable(focus.shape);
+							Designer.op.shapeLinkable(focus.shape, focus.linkPoint);
+						}
+						if(focus.shape.parent){
+							Utils.showAnchors(Model.getShapeById(focus.shape.parent));
+						}else{
+							Utils.showAnchors(focus.shape);
+						}
+					}
+				}else{
+					//如果鼠标坐标下没有图形，则可以进行多图形的选择
+					container.css("cursor", "default");
+					Designer.op.shapeMultiSelectable();
+				}
+			});
+		},
         cancel: function() {
             $("#canvas_container").unbind("mousemove.operate").css("cursor", "default");
             this.destroy()
@@ -2772,13 +2758,17 @@ var Designer = {
 				return linker;
 			}
 		},
-        linkerEditable: function(b) {
-            var a = $("#designer_canvas");
-            a.unbind("dblclick.edit_linker").bind("dblclick.edit_linker", function() {
-                Designer.op.editLinkerText(b);
-                a.unbind("dblclick.edit_linker")
-            })
-        },
+        /**
+		 * 编辑连接线文本
+		 * @param {} linker
+		 */
+		linkerEditable: function(linker){
+			var canvas = $("#designer_canvas");
+			canvas.unbind("dblclick.edit_linker").bind("dblclick.edit_linker", function(){
+				Designer.op.editLinkerText(linker);
+				canvas.unbind("dblclick.edit_linker");
+			});
+		},
         editLinkerText: function(e) {
             Designer.contextMenu.hide();
             var d = Designer.painter.getLinkerMidpoint(e);
@@ -3293,52 +3283,56 @@ var Designer = {
         hideLinkPoint: function() {
             $(".link_point_canvas").hide()
         },
-        brokenLinkerChangable: function(d, c) {
-            var a = $("#canvas_container");
-            var b = $("#designer_canvas");
-            var f = d.points[c - 1];
-            var e = d.points[c];
-            if (f.x == e.x) {
-                a.css("cursor", "e-resize")
-            } else {
-                a.css("cursor", "n-resize")
-            }
-            b.bind("mousedown.brokenLinker", function(i) {
-                Designer.op.changeState("changing_broken_linker");
-                var h = Utils.getRelativePos(i.pageX, i.pageY, b);
-                var g = Utils.getSelectedIds();
-                a.bind("mousemove.brokenLinker", function(k) {
-                    var j = Utils.getRelativePos(k.pageX, k.pageY, b);
-                    var l = {
-                        x: j.x - h.x,
-                        y: j.y - h.y
-                    };
-                    l = Utils.restoreScale(l);
-                    if (f.x == e.x) {
-                        f.x += l.x;
-                        e.x += l.x
-                    } else {
-                        f.y += l.y;
-                        e.y += l.y
-                    }
-                    Designer.painter.renderLinker(d);
-                    if (g.length > 1) {
-                        Designer.painter.drawControls(g)
-                    }
-                    h = j;
-                    $(document).unbind("mouseup.changed").bind("mouseup.changed", function() {
-                        Model.update(d);
-                        $(document).unbind("mouseup.changed")
-                    })
-                });
-                $(document).bind("mouseup.brokenLinker", function() {
-                    Designer.op.resetState();
-                    a.unbind("mousemove.brokenLinker");
-                    b.unbind("mousedown.brokenLinker");
-                    $(document).unbind("mouseup.brokenLinker")
-                })
-            })
-        },
+        brokenLinkerChangable: function(linker, index){
+			var container = $("#canvas_container");
+			var canvas = $("#designer_canvas");
+			var p1 = linker.points[index - 1];
+			var p2 = linker.points[index];
+			if(p1.x == p2.x){
+				container.css("cursor", "e-resize");
+				//可左右拖动
+			}else{
+				container.css("cursor", "n-resize");
+				//可上下拖动
+			}
+			canvas.bind("mousedown.brokenLinker", function(downE){
+				Designer.op.changeState("changing_broken_linker");
+				//初始坐标，要取相对画布的坐标
+				var begin = Utils.getRelativePos(downE.pageX, downE.pageY, canvas);
+				var selectedIds = Utils.getSelectedIds();
+				container.bind("mousemove.brokenLinker", function(moveE){
+					var now = Utils.getRelativePos(moveE.pageX, moveE.pageY, canvas);
+					//计算和开始时候的偏移量
+					var offset = {
+						x: now.x - begin.x, y: now.y - begin.y
+					};
+					offset = Utils.restoreScale(offset);
+					if(p1.x == p2.x){
+						p1.x += offset.x;
+						p2.x += offset.x;
+					}else{
+						p1.y += offset.y;
+						p2.y += offset.y;
+					}
+					Designer.painter.renderLinker(linker);
+					if(selectedIds.length > 1){
+						Designer.painter.drawControls(selectedIds);
+					}
+					begin = now;
+					//在mousemove里绑定一个mouseup，目的是为了当鼠标发生了拖动之后，才认为是进行了拖动事件
+					$(document).unbind("mouseup.changed").bind("mouseup.changed", function(){
+						Model.update(linker);
+						$(document).unbind("mouseup.changed");
+					});
+				});
+				$(document).bind("mouseup.brokenLinker", function(){
+					Designer.op.resetState();
+					container.unbind("mousemove.brokenLinker");
+					canvas.unbind("mousedown.brokenLinker");
+					$(document).unbind("mouseup.brokenLinker");
+				});
+			});
+		},
         removeShape: function() {
             var d = Utils.getSelected();
             if (d.length > 0) {
@@ -6735,38 +6729,33 @@ var Utils = {
         }
         return false
     },
-    pointInLinker: function(h, e, f) {
-        var j = this.getLinkerLinePoints(e);
-        var c = {
-            x: h.x - f,
-            y: h.y
-        };
-        var b = {
-            x: h.x + f,
-            y: h.y
-        };
-        var a = {
-            x: h.x,
-            y: h.y - f
-        };
-        var l = {
-            x: h.x,
-            y: h.y + f
-        };
-        for (var d = 1; d < j.length; d++) {
-            var k = j[d - 1];
-            var i = j[d];
-            var g = this.checkCross(c, b, k, i);
-            if (g) {
-                return d
-            }
-            g = this.checkCross(a, l, k, i);
-            if (g) {
-                return d
-            }
-        }
-        return -1
-    },
+    /**
+	 * 判断点是否在连接线上
+	 * @return 如果没在线上，返回-1，否则返回相交点的索引
+	 */
+	pointInLinker: function(point, linker, radius){
+		var points = this.getLinkerLinePoints(linker);
+		//在x轴上放射两个点(一条线)
+		var linex1 = {x: point.x - radius, y: point.y};
+		var linex2 = {x: point.x + radius, y: point.y};
+		//在y轴上放射两个点(一条线)
+		var liney1 = {x: point.x, y: point.y - radius};
+        var liney2 = {x: point.x, y: point.y + radius};
+        
+		for(var pi = 1; pi < points.length; pi++){
+			var p1 = points[pi - 1];
+			var p2 = points[pi];
+			var cross = this.checkCross(linex1, linex2, p1, p2);
+			if(cross){
+				return pi;
+			}
+			cross = this.checkCross(liney1, liney2, p1, p2);
+			if(cross){
+				return pi;
+			}
+		}
+		return -1;
+	},
     getLinkerLength: function(c) {
         var b = this.getLinkerLinePoints(c);
         var a = 0;
