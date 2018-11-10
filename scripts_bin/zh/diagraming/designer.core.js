@@ -2769,125 +2769,120 @@ var Designer = {
 				canvas.unbind("dblclick.edit_linker");
 			});
 		},
-        editLinkerText: function(e) {
-            Designer.contextMenu.hide();
-            var d = Designer.painter.getLinkerMidpoint(e);
-            var h = $("#" + e.id).find(".text_canvas");
-            var b = $("#linker_text_edit");
-            if (b.length == 0) {
-                b = $("<textarea id='linker_text_edit'></textarea>").appendTo("#designer_canvas")
-            }
-            $("#" + e.id).find(".text_canvas").hide();
-            var g = Utils.getLinkerFontStyle(e.fontStyle);
-            var f = "scale(" + Designer.config.scale + ")";
-            var a = Math.round(g.size * 1.25);
-            b.css({
-                "z-index": Model.orderList.length,
-                "line-height": a + "px",
-                "font-size": g.size + "px",
-                "font-family": g.fontFamily,
-                "font-weight": g.bold ? "bold" : "normal",
-                "font-style": g.italic ? "italic" : "normal",
-                "text-align": g.textAlign,
-                color: "rgb(" + g.color + ")",
-                "text-decoration": g.underline ? "underline" : "none",
-                "-webkit-transform": f,
-                "-ms-transform": f,
-                "-o-transform": f,
-                "-moz-transform": f,
-                transform: f
-            });
-            b.val(e.text).show().select();
-            b.unbind().bind("keyup", function() {
-                var k = $(this).val();
-                var l = k.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
-                h.html(l + "<br/>");
-                var i = h.width();
-                if (i < 50) {
-                    i = 50
-                }
-                var j = h.height();
-                if (j < a) {
-                    j = a
-                }
-                if (typeof e.textPos != "undefined") {
-                    b.css({
-                        left: e.textPos.x,
-                        top: e.textPos.y,
-                        width: i,
-                        height: j
-                    })
-                } else {
-                    b.css({
-                        left: d.x.toScale() - i / 2 - 2,
-                        top: d.y.toScale() - j / 2 - 2,
-                        width: i,
-                        height: j
-                    })
-                }
-            }).bind("mousedown", function(i) {
-                i.stopPropagation()
-            }).bind("keydown", function(k) {
-                if (k.keyCode == 13 && k.ctrlKey) {
-                    c();
-                    return false
-                } else {
-                    if (k.keyCode == 27) {
-                        b.unbind().remove();
-                        Designer.painter.renderLinkerText(e)
-                    } else {
-                        if (k.keyCode == 66 && k.ctrlKey) {
-                            var l = Utils.getLinkerFontStyle(e.fontStyle);
-                            var i = !l.bold;
-                            e.fontStyle.bold = i;
-                            Model.update(e);
-                            var j = i ? "bold" : "normal";
-                            $(this).css("font-weight", j);
-                            h.css("font-weight", j);
-                            UI.update()
-                        } else {
-                            if (k.keyCode == 73 && k.ctrlKey) {
-                                var l = Utils.getLinkerFontStyle(e.fontStyle);
-                                var i = !l.italic;
-                                e.fontStyle.italic = i;
-                                Model.update(e);
-                                var j = i ? "italic" : "normal";
-                                $(this).css("font-style", j);
-                                h.css("font-style", j);
-                                UI.update()
-                            } else {
-                                if (k.keyCode == 85 && k.ctrlKey) {
-                                    var l = Utils.getLinkerFontStyle(e.fontStyle);
-                                    var i = !l.underline;
-                                    e.fontStyle.underline = i;
-                                    Model.update(e);
-                                    var j = i ? "underline" : "none";
-                                    $(this).css("text-decoration", j);
-                                    h.css("text-decoration", j);
-                                    k.preventDefault();
-                                    UI.update()
-                                }
-                            }
-                        }
-                    }
-                }
-            }).bind("blur", function() {
-                c()
-            });
-            b.trigger("keyup");
-            function c() {
-                var i = $("#linker_text_edit");
-                if (i.length && i.is(":visible")) {
-                    var j = i.val();
-                    if (j != e.text) {
-                        e.text = j;
-                        Model.update(e)
-                    }
-                    Designer.painter.renderLinker(e);
-                    i.remove()
-                }
-            }
-        },
+        /**
+		 * 编辑连接线的文本
+		 */
+		editLinkerText: function(linker){
+			Designer.contextMenu.hide();
+			var midpoint = Designer.painter.getLinkerMidpoint(linker);
+			var ruler = $("#" + linker.id).find(".text_canvas");
+			var textarea = $("#linker_text_edit");
+			if(textarea.length == 0){
+				textarea = $("<textarea id='linker_text_edit'></textarea>").appendTo("#designer_canvas");
+			}
+			//隐藏原有文本，全透明
+			$("#" + linker.id).find(".text_canvas").hide();
+			var fontStyle = linker.fontStyle;
+			var scale = "scale("+Designer.config.scale+")";
+			var lineH = Math.round(fontStyle.size * 1.25);
+			//先给输入框设置一些基本样式
+			textarea.css({
+				"z-index": Model.orderList.length,
+				"line-height": lineH + "px",
+				"font-size": fontStyle.size + "px",
+				"font-family": fontStyle.fontFamily,
+				"font-weight": fontStyle.bold ? "bold" : "normal",
+				"font-style": fontStyle.italic ? "italic" : "normal",
+				"text-align": fontStyle.textAlign,
+				"color": "rgb(" + fontStyle.color + ")",
+				"text-decoration": fontStyle.underline ? "underline" : "none",
+				"-webkit-transform": scale,
+				"-ms-transform": scale,
+				"-o-transform": scale,
+				"-moz-transform": scale,
+				"transform": scale
+			});
+			//修改坐标
+			textarea.val(linker.text).show().select();
+			textarea.unbind().bind("keyup", function(){
+				var newText = $(this).val();
+				var text = newText.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
+				ruler.html(text + "<br/>");
+				var textW = ruler.width();
+				if(textW < 50){
+					textW = 50;
+				}
+				var textH = ruler.height();
+				if(textH < lineH){
+					textH = lineH;
+				}
+				textarea.css({
+					left: midpoint.x.toScale() - textW/2 - 2,
+					top: midpoint.y.toScale() - textH/2 - 2,
+					width: textW,
+					height: textH
+				});
+			}).bind("mousedown", function(e){
+				e.stopPropagation();
+			}).bind("keydown", function(e){
+				if(e.keyCode == 13 && e.ctrlKey){
+					//执行保存
+					saveText();
+					return false;
+				}else if(e.keyCode == 27){
+					//Esc取消
+					textarea.unbind().remove();
+					Designer.painter.renderLinkerText(linker);
+				}else if(e.keyCode == 66 && e.ctrlKey){
+					//Ctrl + B，加粗
+					var newVal = !linker.fontStyle.bold;
+					linker.fontStyle.bold = newVal;
+					Model.update(linker);
+					var css = newVal ? "bold" : "normal";
+					$(this).css("font-weight", css);
+					ruler.css("font-weight", css);
+					UI.update();
+				}else if(e.keyCode == 73 && e.ctrlKey){
+					//Ctrl + I，斜体
+					var newVal = !linker.fontStyle.italic;
+					linker.fontStyle.italic = newVal;
+					Model.update(linker);
+					var css = newVal ? "italic" : "normal";
+					$(this).css("font-style", css);
+					ruler.css("font-style", css);
+					UI.update();
+				}else if(e.keyCode == 85 && e.ctrlKey){
+					//Ctrl + U，下划线
+					var newVal = !linker.fontStyle.underline;
+					linker.fontStyle.underline = newVal;
+					Model.update(linker);
+					var css = newVal ? "underline" : "none";
+					$(this).css("text-decoration", css);
+					ruler.css("text-decoration", css);
+					e.preventDefault();
+					UI.update();
+				}
+			}).bind("blur", function(){
+				saveText();
+			});
+			textarea.trigger("keyup");
+			/**
+			 * 保存文本
+			 */
+			function saveText(){
+				var textarea = $("#linker_text_edit");
+				if(textarea.length && textarea.is(":visible")){
+					var newText = textarea.val();
+					if(newText != linker.text){
+						linker.text = newText;
+						Model.update(linker);
+					}
+					Designer.painter.renderLinker(linker);
+					textarea.remove();
+				}
+				
+			}
+		},
         linkerDraggable: function(d, a) {
             if (d.locked) {
                 return
@@ -5750,56 +5745,65 @@ var Designer = {
                 })
             }
         },
-        getLinkerMidpoint: function(c) {
-            var g = {};
-            if (c.linkerType == "normal") {
-                g = {
-                    x: 0.5 * c.from.x + 0.5 * c.to.x,
-                    y: 0.5 * c.from.y + 0.5 * c.to.y
-                }
-            } else {
-                if (c.linkerType == "curve") {
-                    var o = c.from;
-                    var m = c.points[0];
-                    var h = c.points[1];
-                    var f = c.to;
-                    g = {
-                        x: o.x * 0.125 + m.x * 0.375 + h.x * 0.375 + f.x * 0.125,
-                        y: o.y * 0.125 + m.y * 0.375 + h.y * 0.375 + f.y * 0.125
-                    }
-                } else {
-                    var i = [];
-                    i.push(c.from);
-                    i = i.concat(c.points);
-                    i.push(c.to);
-                    var l = 0;
-                    for (var b = 1; b < i.length; b++) {
-                        var m = i[b - 1];
-                        var h = i[b];
-                        var e = Utils.measureDistance(m, h);
-                        l += e
-                    }
-                    var k = l / 2;
-                    var a = 0;
-                    for (var b = 1; b < i.length; b++) {
-                        var m = i[b - 1];
-                        var h = i[b];
-                        var e = Utils.measureDistance(m, h);
-                        var j = a + e;
-                        if (j >= k) {
-                            var n = (k - a) / e;
-                            g = {
-                                x: (1 - n) * m.x + n * h.x,
-                                y: (1 - n) * m.y + n * h.y
-                            };
-                            break
-                        }
-                        a = j
-                    }
-                }
-            }
-            return g
-        },
+        /**
+		 * 获取到连接线的中点坐标
+		 * @param {} linker
+		 */
+		getLinkerMidpoint: function(linker){
+			var point = {};
+			if(linker.linkerType == "normal"){
+				//直线时，根据公式：B(t) = (1-t)P0 + tP1，t=0.5时，在线中点
+				point = {
+					x: 0.5*linker.from.x + 0.5*linker.to.x,
+					y: 0.5*linker.from.y + 0.5*linker.to.y
+				}
+			}else if(linker.linkerType == "curve"){
+				//曲线时，根据公式：B(t) = P0(1-t)^3 + 3P1t(1-t)^2 + 3P2t^2(1-t) + P3t^3，t=0.5时，在线中点
+				var p0 = linker.from;
+				var p1 = linker.points[0];
+				var p2 = linker.points[1];
+				var p3 = linker.to;
+				point = {
+					x: p0.x*0.125 + p1.x*0.375 + p2.x*0.375 + p3.x*0.125,
+					y: p0.y*0.125 + p1.y*0.375 + p2.y*0.375 + p3.y*0.125
+				}
+			}else{
+				//折线时，计算每一笔的长度，找中点
+				var points = [];
+				points.push(linker.from);
+				points = points.concat(linker.points);
+				points.push(linker.to);
+				//先求连接线的全长
+				var totalLength = 0;
+				for(var pi = 1; pi < points.length; pi++){
+					var p1 = points[pi - 1];
+					var p2 = points[pi];
+					//计算一段的长
+					var d = Utils.measureDistance(p1, p2);
+					totalLength += d;
+				}
+				var halfLength = totalLength / 2; //连接线长度的一半
+				var growLength = 0;
+				for(var pi = 1; pi < points.length; pi++){
+					var p1 = points[pi - 1];
+					var p2 = points[pi];
+					//计算一段的长
+					var d = Utils.measureDistance(p1, p2);
+					var temp = growLength + d;
+					if(temp > halfLength){
+						//如果某一段的长度大于一半了，则中点在此段上
+						var t = (halfLength - growLength) / d;
+						point = {
+							x: (1-t)*p1.x + t*p2.x,
+							y: (1-t)*p1.y + t*p2.y
+						}
+						break;
+					}
+					growLength = temp;
+				}
+			}
+			return point;
+		},
         controlStatus: {
             resizeDir: [],
             rotatable: true
@@ -7389,11 +7393,11 @@ var Utils = {
     removeLockers: function() {
         $(".shape_locker").remove()
     },
-    measureDistance: function(d, c) {
-        var b = c.y - d.y;
-        var a = c.x - d.x;
-        return Math.sqrt(Math.pow(b, 2) + Math.pow(a, 2))
-    },
+    measureDistance: function(p1, p2){
+		var h = p2.y - p1.y;
+		var w = p2.x - p1.x;
+		return Math.sqrt(Math.pow(h, 2) + Math.pow(w, 2));
+	},
     removeFromArray: function(c, b) {
         var a = c.indexOf(b);
         if (a >= 0) {
